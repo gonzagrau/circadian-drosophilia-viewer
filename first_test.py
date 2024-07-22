@@ -5,10 +5,10 @@ import seaborn as sns
 
 def main():
     DATA_PATH = r'../dataset/GSM4768020_CT02_20190528_AR05.csv'
-    df = pd.read_csv(DATA_PATH)
+    df = pd.read_csv(DATA_PATH, index_col=0)
     print(df.head(10))
-    ax = sns.heatmap(data=df.head(10)[df.columns[1:]])
-    ax.set_title('Ejemplo de lectura')
+    ax = sns.heatmap(data=df.head(10))
+    ax.set_title('Expresion de gen en neurona')
     plt.show()
 
 
