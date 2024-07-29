@@ -117,6 +117,21 @@ def df_to_anndata(df: pd.DataFrame) -> AnnData:
     return adata
 
 
+def anndata_to_df(adata: AnnData) -> pd.DataFrame:
+    """
+    Convert back to df from anndata without losing the observation columns
+    Args:
+        adata (AnnData): annotated data object, with 'vars' and 'obs'
+
+    Returns:
+        pd.DataFrame: equivalent dataframe
+    """
+    expr_df = adata.to_df()
+    obs_df = adata.obs
+    combined_df = pd.concat([expr_df, obs_df], axis=1)
+    return combined_df
+
+
 def main():
     # Test 1: read from raw data
     # genes = ["DIP-gamma", "DIP-beta", "DIP-delta", "DIP-theta"]
