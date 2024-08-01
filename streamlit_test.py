@@ -32,15 +32,22 @@ def make_dotplots(df: pd.DataFrame) -> None:
     """
     adata = df_to_anndata(df)
     idents = [ident for ident in adata.obs['Idents'].unique()]
+    exps = ['LD', 'DD']
     idents.sort(key= lambda x : int(x.split(':')[0]))
 
     st.write('## Step 2: design your dotplots')
     group = st.radio('Group by:', ['exp_time','Idents'])
     adata_dotplot = adata
+    extra_str = ''
+
     if group == 'exp_time':
         idents = st.multiselect("Select a cluster", idents, default=idents[0])
-        adata_dotplot = df_to_anndata(df[df['Idents'].isin(idents)])
+        experiment = st.radio("Select experiment condition", exps)
+        df_group = df[(df['Idents'].isin(idents)) & (df['experiment'] == experiment)]
+        adata_dotplot = df_to_anndata(df_group)
+        extra_str = f"for {','.join(idents)} at {experiment} condition"
 
+    title = f"Gene expression by {group}" + extra_str
     dotplot = sc.pl.DotPlot(adata_dotplot,
                             var_names=adata.var_names,
                             groupby=group,
@@ -50,7 +57,7 @@ def make_dotplots(df: pd.DataFrame) -> None:
                             var_group_rotation=0.,
                             edgecolors=None,
                             mean_only_expressed=True,
-                            title=f"Gene expression by {group}",
+                            title=title,
                             cmap='Reds',
                             linewidth=0.)
     if group == 'exp_time':
