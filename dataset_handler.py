@@ -50,7 +50,7 @@ def get_time(neuron: str) -> str:
     return match.group()
 
 
-def read_genexp_files(genes: List[str],
+def read_genexp_files(genes: List[str] | None = [],
                       DATA_PATH: str = r'../dataset/',
                       ANNOT_PATH: str = 'clock_neuron_clusters.csv') -> pd.DataFrame:
     """
@@ -64,6 +64,8 @@ def read_genexp_files(genes: List[str],
     Returns:
         pd.DataFrame: each row is a single cell, columns indicate either gene expression or annotations
     """
+    if genes is None:
+        genes = ['amon']
 
     annot_df = pd.read_csv(ANNOT_PATH, index_col=0)
     mapper = lambda x : x[1:] # removes leading 'x' char in idx strings
