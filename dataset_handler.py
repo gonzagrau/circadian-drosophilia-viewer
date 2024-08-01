@@ -134,18 +134,18 @@ def anndata_to_df(adata: AnnData) -> pd.DataFrame:
 
 def main():
     # Test 1: read from raw data
-    # genes = ["DIP-gamma", "DIP-beta", "DIP-delta", "DIP-theta"]
-    # genexp_df = read_genexp_files(genes)
-    # print(genexp_df.shape)
-    # print(genexp_df.head(10))
+    genes = ["DIP-gamma", "DIP-beta", "DIP-delta", "DIP-theta", "dpr8"]
+    genexp_df = read_genexp_files(genes)
+    print(genexp_df.shape)
+    print(genexp_df.head(10))
     
-    # OUT_DIR = 'data_subsets/'
-    # save = input("Save to csv? [y/n]: ")
-    # if save.strip().lower() == 'y':
-    #     OUT_NAME = input('File name: ')
-    #     if '.csv' not in OUT_NAME:
-    #         OUT_NAME += '.csv'
-    #     genexp_df.to_csv(os.path.join(OUT_DIR, OUT_NAME))
+    OUT_DIR = 'data_subsets/'
+    save = input("Save to csv? [y/n]: ")
+    if save.strip().lower() == 'y':
+        OUT_NAME = input('File name: ')
+        if '.csv' not in OUT_NAME:
+            OUT_NAME += '.csv'
+        genexp_df.to_csv(os.path.join(OUT_DIR, OUT_NAME))
 
     # Test 2: converto to anndata
     read_df = pd.read_csv(r"data_subsets\DIP-genes.csv", index_col=0)
