@@ -8,7 +8,7 @@ import scanpy as sc
 from dataset_handler import read_genexp_files, df_to_anndata, anndata_to_df
 from typing import List
 
-mpl.use('TKAgg')
+mpl.use('agg')
 sns.set_palette('deep')
 
 def fetch_data(choice: List[str]) -> None:
@@ -34,18 +34,23 @@ def make_dotplots(df: pd.DataFrame) -> None:
     idents.sort(key= lambda x : int(x.split(':')[0]))
 
     st.write('## Step 2: design your dotplots')
+    condition_choice = st.multiselect("Select experiment condition", exps)
+    df_exp = df[df['experiment'].isin(condition_choice)]
     group = st.radio('Group by:', ['exp_time','Idents'])
-    adata_dotplot = adata
-    extra_str = ''
 
-    if group == 'exp_time':
+    if group == 'Idents':
+        adata_dotplot = df_to_anndata(df_exp)
+        extra_str = ''
+        swap = False
+
+    elif group == 'exp_time':
         idents = st.multiselect("Select a cluster", idents, default=idents[0])
-        experiment = st.radio("Select experiment condition", exps)
-        df_group = df[(df['Idents'].isin(idents)) & (df['experiment'] == experiment)]
+        df_group = df_exp[(df_exp['Idents'].isin(idents))]
         adata_dotplot = df_to_anndata(df_group)
-        extra_str = f"for {','.join(idents)} at {experiment} condition"
+        extra_str = f"for {','.join(idents)}"
+        swap = True
 
-    title = f"Gene expression by {group}" + extra_str
+    title = f"Gene expression by {group} at {','.join(condition_choice)}" + extra_str
     dotplot = sc.pl.DotPlot(adata_dotplot,
                             var_names=adata.var_names,
                             groupby=group,
@@ -58,11 +63,11 @@ def make_dotplots(df: pd.DataFrame) -> None:
                             title=title,
                             cmap='Reds',
                             linewidth=0.)
-    if group == 'exp_time':
+    if swap:
         dotplot.swap_axes()
     dotplot.make_figure()
-    dot_fig = st.pyplot(dotplot.fig)
-    st.session_state['dotplot'] = dot_fig
+    st.session_state['dotplot'] = dotplot.fig
+
 
 def make_pointplots(adata: sc.AnnData) -> None:
     """
@@ -84,6 +89,7 @@ def make_pointplots(adata: sc.AnnData) -> None:
     df_clust = df[df['Idents'].isin(id_choice)]
 
     # Plot
+    figures = []
     gene_palette = {"LD": 'turquoise', "DD": 'gray'}
     for i, gene in enumerate(adata.var_names):
         fig, ax = plt.subplots()
@@ -99,7 +105,10 @@ def make_pointplots(adata: sc.AnnData) -> None:
                       ax=ax,)
         ax.set_ylabel('Gene expression (TP10K)')
         ax.set_title(f"{gene} expression in {', '.join(id_choice)}")
-        st.pyplot(fig)
+        figures.append(fig)
+
+    # Save
+    st.session_state['pointplots'] = figures
 
 
 def main():
@@ -114,6 +123,9 @@ def main():
             genes = f.read().splitlines()[1:]
         if 'data' not in st.session_state:
             st.session_state['data'] = pd.DataFrame()
+            st.session_state['dotplot'] = None
+            st.session_state['pointplots'] = []
+
 
     # Gene selection
     st.write('## Step 1: select genes to analyze')
@@ -128,9 +140,19 @@ def main():
         st.write("Fetched Data:")
         df = st.session_state['data']
         st.dataframe(df)
+
+        # Dotplots
         make_dotplots(df)
+        if st.session_state['dotplot'] is not None:
+            st.pyplot(st.session_state['dotplot'])
+        
+        # Pointplots
         adata = df_to_anndata(df)
         make_pointplots(adata)
+
+        if len(st.session_state['pointplots']):
+            for figure in st.session_state['pointplots']:
+                st.pyplot(figure)
 
     else:
         st.write("Please select data to fetch.")
