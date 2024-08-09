@@ -34,7 +34,7 @@ def make_dotplots(df: pd.DataFrame) -> None:
     idents.sort(key= lambda x : int(x.split(':')[0]))
 
     st.write('## Step 2: design your dotplots')
-    condition_choice = st.multiselect("Select experiment condition", exps)
+    condition_choice = st.multiselect("Select experiment condition", exps, default='LD')
     df_exp = df[df['experiment'].isin(condition_choice)]
     group = st.radio('Group by:', ['exp_time','Idents'])
 
@@ -114,7 +114,7 @@ def make_pointplots(adata: sc.AnnData) -> None:
 def main():
     # Page Title
     st.set_page_config(page_title="CircDrosView", page_icon="bar-chart")
-    TITLE = "# Interactive visualizer for *A transcriptomic taxonomy of* Drosophila *circadian neurons around the clock*"
+    TITLE = "# Interactive visualizer for *A transcriptomic taxonomy of* Drosophilia *circadian neurons around the clock*"
     st.write(TITLE)
 
     # Initialization
