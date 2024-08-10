@@ -3,63 +3,22 @@ import re
 import pandas as pd
 from datetime import date
 from anndata import AnnData
-import matplotlib.pyplot as plt
-import seaborn as sns
+import time
 from typing import List
 
 
-def get_date(neuron: str) -> date:
-    """
-    Extracts date data from singular index
-    :param neuron: string representing single neuron
-    :return: date data
-    """
-    date_pattern = re.compile(r'(20\d\d)(\d\d)(\d\d)')
-    match = date_pattern.search(neuron)
-    if not match:
-        raise ValueError(f'Date not found in {neuron}')
-    year, month, day = tuple([int(x) for x in match.groups()])
-    if month == 0:
-        month = 1
-    return date(year, month, day)
+with open('all_genes.txt', 'r') as f:
+    ALL_GENES = f.read().splitlines()[1:]
 
 
-def get_exp(neuron: str) -> str:
-    """
-    Get experiment (DD || LD) applied to the neuron
-    :param neuron:
-    :return: string 'DD' or 'LD'
-    """
-    exp_re = re.compile(r"(_)(DD|LD)(_)")
-    match = exp_re.search(neuron)
-    if not match:
-        raise ValueError(f'Experiment not found in {neuron}')
-    return match.group(2)
-
-
-def get_time(neuron: str) -> str:
-    """
-    Same as above, capturing ZT or CT time
-    :param neuron: single neuron name
-    :return: ZTXX or CTXX
-    """
-    time_pattern = re.compile(r'(CT|ZT)(\d\d)')
-    match = time_pattern.search(neuron)
-    if not match:
-        raise ValueError(f'Time not found in {neuron}')
-    return match.group()
-
-
-def read_genexp_files(genes: List[str] | None = [],
-                      DATA_PATH: str = r'../dataset/',
-                      ANNOT_PATH: str = 'clock_neuron_clusters.csv') -> pd.DataFrame:
+def read_genexp_files(genes: List[str] | None = None,
+                      data_path: str = r'../dataset/') -> pd.DataFrame:
     """
     Reads through all .csv files in DATA_PATH 
 
     Args:
         genes (List[str]): relevant genes to look for
-        DATA_PATH (str, optional): directory with available .csv files. Defaults to r'../dataset/'.
-        ANNOT_PATH (str, optional): .csv file with further annotations. Defaults to 'clock_neuron_clusters.csv'.
+        data_path (str, optional): directory with available .csv files. Defaults to r'../dataset/'.
 
     Returns:
         pd.DataFrame: each row is a single cell, columns indicate either gene expression or annotations
@@ -67,36 +26,26 @@ def read_genexp_files(genes: List[str] | None = [],
     if genes is None:
         genes = ['amon']
 
-    annot_df = pd.read_csv(ANNOT_PATH, index_col=0)
-    mapper = lambda x : x[1:] # removes leading 'x' char in idx strings
-    genexp_df = None
-
     # Part 1: iterate over all files in dir, and get relevant data
+    genexp_df = None
     print('Going through files...')
-    for filename in os.listdir(DATA_PATH):
-        new_df = pd.read_csv(os.path.join(DATA_PATH, filename), index_col=0)
-        new_df = new_df.loc[genes]\
-                        .rename(mapper, axis='columns')\
-                        .T\
-                        .merge(annot_df[['Idents']], left_index=True, right_index=True, how='left')\
-                        .dropna(subset=['Idents'])
-            
+    for filename in os.listdir(data_path):
+        new_df = pd.read_csv(os.path.join(data_path, filename), index_col=0)
+        new_df = new_df.rename(lambda x: x[1:], axis='columns').T  # removes leading 'x' char in idx strings
+        try:
+            new_df = new_df[genes]
+        except KeyError:
+            continue
         if genexp_df is None:
             genexp_df = new_df
             continue
         genexp_df = pd.concat([genexp_df, new_df])
-    
-    # Part 2: add further annotations
-    print('Getting annotations...')
-    indeces = genexp_df.index.to_series()
-    genexp_df['date'] = indeces.map(get_date)
-    genexp_df['experiment'] = indeces.map(get_exp)
-    genexp_df['exp_time'] = indeces.map(get_time)
 
+    # Part 2: add further annotations
     return genexp_df
 
 
-def df_to_anndata(df: pd.DataFrame) -> AnnData:
+def df_to_anndata(df: pd.DataFrame, annot_cols: List[str] | None = None) -> AnnData:
     """
     Transform single cell genetic expression dataframe to
     the annotated data class, by separating gene columns from 
@@ -104,15 +53,16 @@ def df_to_anndata(df: pd.DataFrame) -> AnnData:
 
     Args:
         df (pd.DataFrame): indeces are single cells, columns are either genes or annot
+        annot_cols: list of annotation columns
 
     Returns:
         AnnData: same info. as the df, but now annotations are stored separetely
     """
-    df_cols = df.columns
-    annot_fields = ['Idents', 'date', 'experiment', 'exp_time']
-    assert any([field in df_cols for field in annot_fields])
-    annot_cols = [col for col in annot_fields if col in df.columns]
-    
+    if annot_cols is None:
+        annot_cols = ['experiment', 'Repeats', 'condition', 'date', 'time', 'Idents']
+
+    assert all([field in df.columns for field in annot_cols])
+
     obs = df[annot_cols]
     df = df.drop(annot_cols, axis='columns')
     adata = AnnData(X=df, obs=obs, var=df.columns.to_frame())
@@ -137,22 +87,27 @@ def anndata_to_df(adata: AnnData) -> pd.DataFrame:
 def main():
     # Test 1: read from raw data
     genes = ["DIP-gamma", "DIP-beta", "DIP-delta", "DIP-theta", "dpr8"]
+    annot_path = 'neuron_annotations.csv'
+    annot_df = pd.read_csv(annot_path, index_col=0)
+    start = time.time()
     genexp_df = read_genexp_files(genes)
-    print(genexp_df.shape)
-    print(genexp_df.head(10))
-    
-    OUT_DIR = 'data_subsets/'
-    save = input("Save to csv? [y/n]: ")
-    if save.strip().lower() == 'y':
-        OUT_NAME = input('File name: ')
-        if '.csv' not in OUT_NAME:
-            OUT_NAME += '.csv'
-        genexp_df.to_csv(os.path.join(OUT_DIR, OUT_NAME))
+    end = time.time()
+    print(f'Read genexp took {end - start:.2f} seconds')
+    full_df = genexp_df.join(annot_df, how='right')
+    print(full_df.shape)
+    print(full_df.head(10))
 
-    # Test 2: converto to anndata
-    read_df = pd.read_csv(r"data_subsets\DIP-genes.csv", index_col=0)
-    genex_ad = df_to_anndata(read_df)
-    print(genex_ad)
+    # OUT_DIR = 'data_subsets/'
+    # save = input("Save to csv? [y/n]: ")
+    # if save.strip().lower() == 'y':
+    #     OUT_NAME = input('File name: ')
+    #     if '.csv' not in OUT_NAME:
+    #         OUT_NAME += '.csv'
+    #     genexp_df.to_csv(os.path.join(OUT_DIR, OUT_NAME))
+
+    # Test 2: convert to anndata
+    genexp_ad = df_to_anndata(full_df)
+    print(genexp_ad)
 
 
 if __name__ == '__main__':

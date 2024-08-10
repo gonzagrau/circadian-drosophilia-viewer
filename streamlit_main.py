@@ -2,7 +2,6 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
-from matplotlib.backends.backend_agg import RendererAgg
 import pandas as pd
 import scanpy as sc
 from dataset_handler import read_genexp_files, df_to_anndata, anndata_to_df
@@ -10,6 +9,8 @@ from typing import List
 
 mpl.use('agg')
 sns.set_palette('deep')
+ANNOT_PATH = r"neuron_annotations.csv"
+
 
 def fetch_data(choice: List[str]) -> None:
     """
@@ -19,8 +20,11 @@ def fetch_data(choice: List[str]) -> None:
     """
     print(choice)
     with st.spinner(text='Fetching data...'):
-        df = read_genexp_files(choice)
+        annot_df = pd.read_csv(ANNOT_PATH, index_col=0)
+        data_df = read_genexp_files(choice)
+        df = data_df.join(annot_df, how='right')
         st.success('Done')
+    print(df.shape)
     st.session_state['data'] = df
 
 
@@ -31,19 +35,19 @@ def make_dotplots(df: pd.DataFrame) -> None:
     adata = df_to_anndata(df)
     idents = [ident for ident in adata.obs['Idents'].unique()]
     exps = ['LD', 'DD']
-    idents.sort(key= lambda x : int(x.split(':')[0]))
+    idents.sort(key=lambda x: int(x.split(':')[0]))
 
     st.write('## Step 2: design your dotplots')
-    condition_choice = st.multiselect("Select experiment condition", exps, default='LD')
-    df_exp = df[df['experiment'].isin(condition_choice)]
-    group = st.radio('Group by:', ['exp_time','Idents'])
+    condition_choice = st.multiselect("Select condition condition", exps, default='LD')
+    df_exp = df[df['condition'].isin(condition_choice)]
+    group = st.radio('Group by:', ['time', 'Idents'])
 
     if group == 'Idents':
         adata_dotplot = df_to_anndata(df_exp)
         extra_str = ''
         swap = False
 
-    elif group == 'exp_time':
+    else:  # elif group == 'time':
         idents = st.multiselect("Select a cluster", idents, default=idents[0])
         df_group = df_exp[(df_exp['Idents'].isin(idents))]
         adata_dotplot = df_to_anndata(df_group)
@@ -76,7 +80,7 @@ def make_pointplots(adata: sc.AnnData) -> None:
     :return:
     """
     idents = [ident for ident in adata.obs['Idents'].unique()]
-    idents.sort(key= lambda x : int(x.split(':')[0]))
+    idents.sort(key=lambda x: int(x.split(':')[0]))
 
     # First, pick clusters
     st.write('## Step 2: design your pointplots')
@@ -85,7 +89,7 @@ def make_pointplots(adata: sc.AnnData) -> None:
     # Then, preprocess data
     sc.pp.normalize_total(adata, target_sum=1e4, exclude_highly_expressed=True)
     df = anndata_to_df(adata)
-    df['time'] = df['exp_time'].apply(lambda x: x[2:])  # (ZT||CT)XX -> XX
+    df['time'] = df['time'].apply(lambda x: x[2:])  # (ZT||CT)XX -> XX
     df_clust = df[df['Idents'].isin(id_choice)]
 
     # Plot
@@ -96,7 +100,7 @@ def make_pointplots(adata: sc.AnnData) -> None:
         sns.pointplot(df_clust,
                       x='time',
                       y=gene,
-                      hue='experiment',
+                      hue='condition',
                       estimator='mean',
                       errorbar='se',
                       palette=gene_palette,
@@ -114,18 +118,18 @@ def make_pointplots(adata: sc.AnnData) -> None:
 def main():
     # Page Title
     st.set_page_config(page_title="CircDrosView", page_icon="bar-chart")
-    TITLE = "# Interactive visualizer for *A transcriptomic taxonomy of* Drosophilia *circadian neurons around the clock*"
-    st.write(TITLE)
+    st.write("""
+    # Interactive visualizer for *A transcriptomic taxonomy of* Drosophilia *circadian neurons around the clock*
+             """)
 
     # Initialization
     with st.spinner(text='Initializing variables...'):
-        with open('all_genes.csv', 'r') as f:
-            genes = f.read().splitlines()[1:]
+        with open('all_genes.txt', 'r') as f:
+            genes = f.read().splitlines()
         if 'data' not in st.session_state:
             st.session_state['data'] = pd.DataFrame()
             st.session_state['dotplot'] = None
             st.session_state['pointplots'] = []
-
 
     # Gene selection
     st.write('## Step 1: select genes to analyze')

@@ -59,7 +59,7 @@ def read_genexp_files(genes: List[str] | None = [],
     Args:
         genes (List[str]): relevant genes to look for
         DATA_PATH (str, optional): directory with available .csv files. Defaults to r'../dataset/'.
-        ANNOT_PATH (str, optional): .csv file with further annotations. Defaults to 'clock_neuron_clusters.csv'.
+        ANNOT_PATH (str, optional): .csv file with further annotations. Defaults to 'clock_neuron_cluster.csv'.
 
     Returns:
         pd.DataFrame: each row is a single cell, columns indicate either gene expression or annotations
