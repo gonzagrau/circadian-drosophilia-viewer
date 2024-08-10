@@ -30,7 +30,7 @@ def read_genexp_files(genes: List[str] | None = None,
     genexp_df = None
     print('Going through files...')
     for filename in os.listdir(data_path):
-        new_df = pd.read_csv(os.path.join(data_path, filename), index_col=0)
+        new_df = pd.read_csv(os.path.join(data_path, filename), index_col=0, keep_default_na=False)
         new_df = new_df.rename(lambda x: x[1:], axis='columns').T  # removes leading 'x' char in idx strings
         try:
             new_df = new_df[genes]
@@ -97,13 +97,13 @@ def main():
     print(full_df.shape)
     print(full_df.head(10))
 
-    # OUT_DIR = 'data_subsets/'
-    # save = input("Save to csv? [y/n]: ")
-    # if save.strip().lower() == 'y':
-    #     OUT_NAME = input('File name: ')
-    #     if '.csv' not in OUT_NAME:
-    #         OUT_NAME += '.csv'
-    #     genexp_df.to_csv(os.path.join(OUT_DIR, OUT_NAME))
+    OUT_DIR = 'data_subsets/'
+    save = input("Save to csv? [y/n]: ")
+    if save.strip().lower() == 'y':
+        OUT_NAME = input('File name: ')
+        if '.csv' not in OUT_NAME:
+            OUT_NAME += '.csv'
+        genexp_df.to_csv(os.path.join(OUT_DIR, OUT_NAME))
 
     # Test 2: convert to anndata
     genexp_ad = df_to_anndata(full_df)
