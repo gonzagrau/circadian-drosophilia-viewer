@@ -7,7 +7,8 @@ import scanpy as sc
 from dataset_handler import read_genexp_files, df_to_anndata, anndata_to_df
 from typing import List
 from copy import deepcopy
-
+from numpy.random import random
+from time import time
 
 mpl.use('agg')
 sns.set_palette('deep')
@@ -26,19 +27,38 @@ def fetch_data(choice: List[str]) -> None:
         data_df = read_genexp_files(choice)
         df = data_df.join(annot_df, how='inner')
         st.success('Done')
+    
     print(df.shape)
-    st.session_state['data'] = df
+
+    # Save data to session state
+    st.session_state['genes'] = choice
+    st.session_state['dataframe'] = df
+    st.session_state['adata'] = df_to_anndata(df)
+    
+    # Save all found clusters
+    idents = [i for i in df['Idents'].unique()]
+    idents.sort(key=lambda x: int(x.split(':')[0]))
+    st.session_state['Idents'] = idents
 
 
-def make_dotplots(df: pd.DataFrame) -> None:
+def idents_multiselect(key: str) -> List[str]:
     """
-    Interactive dotplot builder
+    Widget to select one or more neuron clusters
+    Returns:
+        List[str]: selected clusters
+    """
+    idents = st.session_state['Idents']
+    return st.multiselect("Select a cluster", idents, default=idents[0], key=key)
+
+
+def make_dotplots() -> None:
+    """
+    Interactive dotplot builder for gene expression
     """
     # Backend data reordeing
-    adata = df_to_anndata(df)
-    idents = [ident for ident in adata.obs['Idents'].unique()]
+    df = deepcopy(st.session_state['dataframe'])
+    adata = deepcopy(st.session_state['adata'])
     exps = ['LD', 'DD']
-    idents.sort(key=lambda x: int(x.split(':')[0]))
 
     st.write('## Design your dotplots')
     condition_choice = st.multiselect("Select condition", exps, default='LD')
@@ -51,12 +71,15 @@ def make_dotplots(df: pd.DataFrame) -> None:
         extra_str = ''
 
     else:  # elif group == 'time':
-        idents = st.multiselect("Select a cluster", idents, default=idents[0])
+        idents = st.multiselect("Select a cluster", 
+                                st.session_state['Idents'], 
+                                default=st.session_state['Idents'][0])
         df_group = df_exp[(df_exp['Idents'].isin(idents))]
         adata_dotplot = df_to_anndata(df_group)
         extra_str = f" for {','.join(idents)}"
 
     # Preprocessing
+    st.write('Data preprocessing')
     take_log = st.checkbox('Logarithmize')
     swap_axes = st.checkbox('Swap axes')
 
@@ -82,19 +105,18 @@ def make_dotplots(df: pd.DataFrame) -> None:
     st.session_state['dotplot'] = dotplot.fig
 
 
-def make_pointplots(adata: sc.AnnData) -> None:
+def make_pointplots() -> None:
     """
-    Makes pointplots for every gene
-    :param adata: contains gene expression and annotations
-    :return:
+    Makes pointplots of expression vs. time for every gene
     """
-    idents = [ident for ident in adata.obs['Idents'].unique()]
-    idents.sort(key=lambda x: int(x.split(':')[0]))
+    adata = deepcopy(st.session_state['adata'])
 
     # First, pick clusters
     st.write('## Design your hourly expression pointplots')
-    id_choice = st.multiselect("Select clusters", idents, default=idents[0])
-
+    id_choice = st.multiselect("Pick a cluster", 
+                                st.session_state['Idents'], 
+                                default=st.session_state['Idents'][0])
+    
     # Then, preprocess data
     sc.pp.normalize_total(adata, target_sum=1e4, exclude_highly_expressed=True)
     df = anndata_to_df(adata)
@@ -124,6 +146,56 @@ def make_pointplots(adata: sc.AnnData) -> None:
     st.session_state['pointplots'] = figures
 
 
+def make_heatmap() -> None:
+    """
+    Designs a heatmap and saves it to the session state
+    """
+    adata = deepcopy(st.session_state['adata'])
+
+    take_log = st.checkbox('Logarithmize', key=f"loga{time()}")
+    normalize_total = st.checkbox('Normalize count to 10k', key=f"norma{time()}")
+
+    if take_log:
+        sc.pp.log1p(adata)
+
+    if normalize_total:
+        exclude_high = st.checkbox('Exclude highly expressed genes from normalization', value=True)
+        sc.pp.normalize_total(adata, target_sum=1e4,
+                      exclude_highly_expressed=exclude_high,
+                      inplace=False)
+    
+    df = anndata_to_df(adata)
+    
+    # Pick clusters and times
+    times = [t for t in df['time'].unique()]
+    id_choice = st.multiselect("Choose a cluster", 
+                               st.session_state['Idents'], 
+                               default=st.session_state['Idents'][1])
+    t_choice = st.selectbox('Pick the time', times, placeholder='ZT or CT...')
+    
+    # Select relevant data
+    df = df[(df["Idents"].isin(id_choice)) & (df['time'] == t_choice)]
+    df = df.select_dtypes(include=('float'))
+    df = df - df.mean(axis=0)
+
+    # Plot
+    heatmap = sns.heatmap(df,
+                        cmap='vlag', 
+                        cbar=True,
+                        center=0.05,
+                        vmin=-3,
+                        vmax=3, 
+                        yticklabels=False, 
+                        xticklabels=True)
+    
+    st.session_state['heatmap'] = heatmap.figure
+
+    
+
+    
+
+
+
 def main():
     # Page Title
     st.set_page_config(page_title="CircDrosView", page_icon="bar-chart")
@@ -135,10 +207,14 @@ def main():
     with st.spinner(text='Initializing variables...'):
         with open('all_genes.txt', 'r') as f:
             genes = f.read().splitlines()
-        if 'data' not in st.session_state:
-            st.session_state['data'] = pd.DataFrame()
+        if 'dataframe' not in st.session_state:
+            st.session_state['genes'] = []
+            st.session_state['dataframe'] = pd.DataFrame()
+            st.session_state['adata'] = sc.AnnData()
+            st.session_state['Idents'] = []
             st.session_state['dotplot'] = None
             st.session_state['pointplots'] = []
+            st.session_state['heatmap'] = None
 
     # Gene selection
     st.write('## Step 1: select genes to analyze')
@@ -149,27 +225,30 @@ def main():
     if submit:
         fetch_data(choice)
 
-    if not st.session_state['data'].empty:
+    if not st.session_state['dataframe'].empty:
         st.write("Fetched Data:")
-        df = st.session_state['data']
+        df = st.session_state['dataframe']
         st.dataframe(df)
 
-        tab_dot, tab_point = st.tabs(['Dot plots', 'Point plots'])
-        
+        tab_dot, tab_point, tab_heat = st.tabs(['Dot plots', 'Point plots', 'Heatmaps'])
         # Dotplots
         with tab_dot:
-            make_dotplots(df)
+            make_dotplots()
             if st.session_state['dotplot'] is not None:
                 st.pyplot(st.session_state['dotplot'])
             
         # Pointplots
         with tab_point:
-            adata = df_to_anndata(deepcopy(df))
-            make_pointplots(adata)
-
+            make_pointplots()
             if len(st.session_state['pointplots']):
                 for figure in st.session_state['pointplots']:
                     st.pyplot(figure)
+
+        # Heatmaps
+        with tab_heat:
+            make_heatmap()
+            if st.session_state['heatmap'] is not None:
+                st.pyplot(st.session_state['heatmap'])
 
     else:
         st.write("Please select data to fetch.")
