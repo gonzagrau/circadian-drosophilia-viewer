@@ -24,7 +24,7 @@ def fetch_data(choice: List[str]) -> None:
     with st.spinner(text='Fetching data...'):
         annot_df = pd.read_csv(ANNOT_PATH, index_col=0)
         data_df = read_genexp_files(choice)
-        df = data_df.merge(annot_df, left_index=True, right_index=True, how='left').dropna(subset=['Idents'])
+        df = data_df.join(annot_df, how='inner')
         st.success('Done')
     print(df.shape)
     st.session_state['data'] = df
@@ -54,14 +54,14 @@ def make_dotplots(df: pd.DataFrame) -> None:
         idents = st.multiselect("Select a cluster", idents, default=idents[0])
         df_group = df_exp[(df_exp['Idents'].isin(idents))]
         adata_dotplot = df_to_anndata(df_group)
-        extra_str = f"for {','.join(idents)}"
+        extra_str = f" for {','.join(idents)}"
 
     # Preprocessing
-    # take_log = st.checkbox('Logarithmize')
+    take_log = st.checkbox('Logarithmize')
     swap_axes = st.checkbox('Swap axes')
 
-    # if take_log:
-    #     sc.pp.log1p(adata)
+    if take_log:
+        sc.pp.log1p(adata_dotplot)
 
     title = f"Gene expression by {group} at {','.join(condition_choice)}" + extra_str
     dotplot = sc.pl.DotPlot(adata_dotplot,
