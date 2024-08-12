@@ -6,6 +6,8 @@ import pandas as pd
 import scanpy as sc
 from dataset_handler import read_genexp_files, df_to_anndata, anndata_to_df
 from typing import List
+from copy import deepcopy
+
 
 mpl.use('agg')
 sns.set_palette('deep')
@@ -22,7 +24,7 @@ def fetch_data(choice: List[str]) -> None:
     with st.spinner(text='Fetching data...'):
         annot_df = pd.read_csv(ANNOT_PATH, index_col=0)
         data_df = read_genexp_files(choice)
-        df = data_df.join(annot_df, how='right')
+        df = data_df.merge(annot_df, left_index=True, right_index=True, how='left').dropna(subset=['Idents'])
         st.success('Done')
     print(df.shape)
     st.session_state['data'] = df
@@ -32,27 +34,34 @@ def make_dotplots(df: pd.DataFrame) -> None:
     """
     Interactive dotplot builder
     """
+    # Backend data reordeing
     adata = df_to_anndata(df)
     idents = [ident for ident in adata.obs['Idents'].unique()]
     exps = ['LD', 'DD']
     idents.sort(key=lambda x: int(x.split(':')[0]))
 
-    st.write('## Step 2: design your dotplots')
-    condition_choice = st.multiselect("Select condition condition", exps, default='LD')
+    st.write('## Design your dotplots')
+    condition_choice = st.multiselect("Select condition", exps, default='LD')
     df_exp = df[df['condition'].isin(condition_choice)]
     group = st.radio('Group by:', ['time', 'Idents'])
-
+    
+    # Select relevant data
     if group == 'Idents':
         adata_dotplot = df_to_anndata(df_exp)
         extra_str = ''
-        swap = False
 
     else:  # elif group == 'time':
         idents = st.multiselect("Select a cluster", idents, default=idents[0])
         df_group = df_exp[(df_exp['Idents'].isin(idents))]
         adata_dotplot = df_to_anndata(df_group)
         extra_str = f"for {','.join(idents)}"
-        swap = True
+
+    # Preprocessing
+    # take_log = st.checkbox('Logarithmize')
+    swap_axes = st.checkbox('Swap axes')
+
+    # if take_log:
+    #     sc.pp.log1p(adata)
 
     title = f"Gene expression by {group} at {','.join(condition_choice)}" + extra_str
     dotplot = sc.pl.DotPlot(adata_dotplot,
@@ -67,7 +76,7 @@ def make_dotplots(df: pd.DataFrame) -> None:
                             title=title,
                             cmap='Reds',
                             linewidth=0.)
-    if swap:
+    if swap_axes:
         dotplot.swap_axes()
     dotplot.make_figure()
     st.session_state['dotplot'] = dotplot.fig
@@ -83,7 +92,7 @@ def make_pointplots(adata: sc.AnnData) -> None:
     idents.sort(key=lambda x: int(x.split(':')[0]))
 
     # First, pick clusters
-    st.write('## Step 2: design your pointplots')
+    st.write('## Design your hourly expression pointplots')
     id_choice = st.multiselect("Select clusters", idents, default=idents[0])
 
     # Then, preprocess data
@@ -145,18 +154,22 @@ def main():
         df = st.session_state['data']
         st.dataframe(df)
 
-        # Dotplots
-        make_dotplots(df)
-        if st.session_state['dotplot'] is not None:
-            st.pyplot(st.session_state['dotplot'])
+        tab_dot, tab_point = st.tabs(['Dot plots', 'Point plots'])
         
+        # Dotplots
+        with tab_dot:
+            make_dotplots(df)
+            if st.session_state['dotplot'] is not None:
+                st.pyplot(st.session_state['dotplot'])
+            
         # Pointplots
-        adata = df_to_anndata(df)
-        make_pointplots(adata)
+        with tab_point:
+            adata = df_to_anndata(deepcopy(df))
+            make_pointplots(adata)
 
-        if len(st.session_state['pointplots']):
-            for figure in st.session_state['pointplots']:
-                st.pyplot(figure)
+            if len(st.session_state['pointplots']):
+                for figure in st.session_state['pointplots']:
+                    st.pyplot(figure)
 
     else:
         st.write("Please select data to fetch.")

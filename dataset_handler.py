@@ -30,7 +30,7 @@ def read_genexp_files(genes: List[str] | None = None,
     genexp_df = None
     print('Going through files...')
     for filename in os.listdir(data_path):
-        new_df = pd.read_csv(os.path.join(data_path, filename), index_col=0, keep_default_na=False)
+        new_df = pd.read_csv(os.path.join(data_path, filename), index_col=0) #, keep_default_na=False)
         new_df = new_df.rename(lambda x: x[1:], axis='columns').T  # removes leading 'x' char in idx strings
         try:
             new_df = new_df[genes]
@@ -41,7 +41,6 @@ def read_genexp_files(genes: List[str] | None = None,
             continue
         genexp_df = pd.concat([genexp_df, new_df])
 
-    # Part 2: add further annotations
     return genexp_df
 
 
