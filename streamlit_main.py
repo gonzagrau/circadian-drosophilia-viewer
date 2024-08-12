@@ -152,8 +152,8 @@ def make_heatmap() -> None:
     """
     adata = deepcopy(st.session_state['adata'])
 
-    take_log = st.checkbox('Logarithmize', key=f"loga{time()}")
-    normalize_total = st.checkbox('Normalize count to 10k', key=f"norma{time()}")
+    take_log = st.toggle('Apply logarithm')
+    normalize_total = st.checkbox('Normalize count to 10k')
 
     if take_log:
         sc.pp.log1p(adata)
@@ -175,24 +175,21 @@ def make_heatmap() -> None:
     
     # Select relevant data
     df = df[(df["Idents"].isin(id_choice)) & (df['time'] == t_choice)]
-    df = df.select_dtypes(include=('float'))
+    df = df.select_dtypes(include=('float', 'int'))
     df = df - df.mean(axis=0)
 
     # Plot
+    fig, ax = plt.subplots()
     heatmap = sns.heatmap(df,
-                        cmap='vlag', 
-                        cbar=True,
-                        center=0.05,
-                        vmin=-3,
-                        vmax=3, 
-                        yticklabels=False, 
-                        xticklabels=True)
-    
-    st.session_state['heatmap'] = heatmap.figure
-
-    
-
-    
+                          ax=ax,
+                          cmap='vlag', 
+                          cbar=True,
+                          center=0.05,
+                          vmin=-3,
+                          vmax=3,
+                          yticklabels=False, 
+                          xticklabels=True)
+    st.session_state['heatmap'] = heatmap.figure   
 
 
 
@@ -242,6 +239,7 @@ def main():
             make_pointplots()
             if len(st.session_state['pointplots']):
                 for figure in st.session_state['pointplots']:
+                    plt.legend()
                     st.pyplot(figure)
 
         # Heatmaps
