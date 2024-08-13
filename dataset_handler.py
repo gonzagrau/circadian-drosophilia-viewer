@@ -12,13 +12,13 @@ with open('all_genes.txt', 'r') as f:
 
 
 def read_genexp_files(genes: List[str] | None = None,
-                      data_path: str = r'../dataset/') -> pd.DataFrame:
+                      data_path: str = r'dataset/') -> pd.DataFrame:
     """
     Reads through all .csv files in DATA_PATH 
 
     Args:
         genes (List[str]): relevant genes to look for
-        data_path (str, optional): directory with available .csv files. Defaults to r'../dataset/'.
+        data_path (str, optional): directory with available .csv files. Defaults to r'dataset/'.
 
     Returns:
         pd.DataFrame: each row is a single cell, columns indicate either gene expression or annotations
