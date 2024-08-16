@@ -16,15 +16,25 @@ def list_indeces(filepath: str) -> list[str]:
 
 
 def main():
-    zt_path = r'..\..\dataset\GSM4768068_ZT02_20190309_AR08.csv'
-    zt_genes = list_indeces(zt_path)
-    ct_path = r'..\..\dataset\GSM4768021_CT02_20190528_AR06.csv'
-    ct_genes = list_indeces(ct_path)
+    LD_path = r'..\..\dataset\GSM4768068_ZT02_20190309_AR08.csv'
+    LD_genes = list_indeces(LD_path)
+    LD_genes.sort()
+    DD_path = r'..\..\dataset\GSM4768021_CT02_20190528_AR06.csv'
+    DD_genes = list_indeces(DD_path)
+    DD_genes.sort()
 
-    all_genes = set(zt_genes).union(set(ct_genes))
+    all_genes = set(LD_genes).union(set(DD_genes))
     all_genes = list(all_genes)
     all_genes.sort()
     print(len(all_genes))
+
+    with open('../LD_genes.txt', 'w') as file:
+        for gene in LD_genes:
+            file.write(f"{gene}\n")
+
+    with open('../DD_genes.txt', 'w') as file:
+        for gene in DD_genes:
+            file.write(f"{gene}\n")
 
     with open('../all_genes.txt', 'w') as file:
         for gene in all_genes:
