@@ -1,3 +1,4 @@
 __pycache__/
 dataset/
 tests_and_preprocessing/.env
+.env
