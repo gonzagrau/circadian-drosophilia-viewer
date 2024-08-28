@@ -28,11 +28,11 @@ def main():
     all_genes.sort()
     print(len(all_genes))
 
-    with open('../LD_genes.txt', 'w') as file:
+    with open('../database connection/LD_genes.txt', 'w') as file:
         for gene in LD_genes:
             file.write(f"{gene}\n")
 
-    with open('../DD_genes.txt', 'w') as file:
+    with open('../database connection/DD_genes.txt', 'w') as file:
         for gene in DD_genes:
             file.write(f"{gene}\n")
 
