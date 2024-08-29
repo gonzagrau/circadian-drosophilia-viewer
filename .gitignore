@@ -3,5 +3,3 @@ dataset/
 tests_and_preprocessing/.env
 database connection/.env
 /.idea/
-dataset_DD.h5ad
-dataset_LD.h5ad

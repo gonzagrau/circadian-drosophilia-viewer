@@ -3,56 +3,82 @@ import matplotlib as mpl
 import seaborn as sns
 import pandas as pd
 import scanpy as sc
-import anndata as ad
+from scanpy import AnnData
+from dataset_handler import anndata_to_df
 
-mpl.use('agg')
 sns.set_palette('deep')
+mpl.use('TkAgg')
 
-adata = sc.read_h5ad('dataset_LD.h5ad')
-# Sacar genes
-patterns_to_exclude = ['mt', 'rpls', 'rRNA', 'tRNA', 'ERCC', 'EGFP']
-gene_names = adata.var['gene_names'].astype(str)
-filtered_genes = ~gene_names.str.contains('|'.join(patterns_to_exclude), regex=True)
+def preprocess_pipeline(adata: AnnData,
+                        patterns_to_exclude: list | None = None,
+                        exclude_highly_expressed: bool = False,
+                        log_normalize: bool = False) -> AnnData:
+    """
+    Excludes genes based on certain name patterns
+    Args:
+        adata: gene expression annotated data object
+        patterns_to_exclude: list of patterns to exclude. if None, defaults to a pre-specified pattern defined below
+        exclude_highly_expressed: kwarg for normalize_total. defaults to False
+        log_normalize: second normalization, optional, applying a log transform. defaults to False.
+    Returns:
+        modified, normalized anndata object. no changes are made inplace to the original.
+    """
+    if patterns_to_exclude is None:
+        patterns_to_exclude = ['mt', 'rpls', 'rRNA', 'tRNA', 'ERCC', 'EGFP']
 
-# Aplicar el filtro al objeto AnnData
-adata_filtered = adata[:, filtered_genes].copy()
-#print(adata_filtered.var['gene_names'])
+    # Filter genes
+    gene_names = adata.var['gene_names'].astype(str)
+    filtered_genes = ~gene_names.str.contains('|'.join(patterns_to_exclude), regex=True)
+    adata = adata[:, filtered_genes].copy()
 
-# Normalizacion por celula (para que cada celula tenga el mismo total de cuentas)
-# sc.pp.normalize_total(adata, target_sum=1e4)
-sc.pp.normalize_total(adata_filtered, target_sum=1e4, exclude_highly_expressed=True)
+    # Normalize per cell (same total count for each cell)
+    sc.pp.normalize_total(adata, target_sum=1e4, exclude_highly_expressed=exclude_highly_expressed)
 
-# Aplicar logaritmo a los datos normalizados
-#sc.pp.log1p(adata)
+    # Log normalize
+    if log_normalize:
+        sc.pp.log1p(adata)
 
-adata_filtered.obs['Idents'] = adata_filtered.obs['Idents'].astype('category')
-print(adata_filtered.obs['Idents'])
-# Seleccionar los genes de interes
-#genes_of_interest = ['DIP-gamma', 'DIP-beta', 'DIP-delta', 'DIP-theta', 'dpr8']
+    return adata
 
-# Crear el dotplot
-mpl.use('TkAgg')  # Cambia a un backend interactivo, como TkAgg o Qt5Agg
-#sc.pl.dotplot(adata, var_names=genes_of_interest, groupby='Idents', standard_scale='var',)
 
-# Filtrar las celulas que pertenecen al cluster 'sLNVs'
-adata_slNvs = adata_filtered[adata_filtered.obs['Idents'] == '2:s_LNv', :]
-#adata_llNvs = adata_filtered[adata_filtered.obs['Idents'] == '25:l_LNv', :]
+def test_preprocess_pipeline(adata: AnnData) -> None:
+    """
+    Makes some basic plots using a preprocessed anndata object.
+    Args:
+        adata: preprocessed anndata object.
 
-# Obtener los datos de expresion del gen
-expression = adata_slNvs[:, adata_slNvs.var['gene_names'] == 'per'].X
+    Returns:
+        None
+    """
 
-# Crear un DataFrame para agrupar por 'time'
-df = pd.DataFrame(expression.toarray(), columns=['per'], index=adata_slNvs.obs.index)
-df['time'] = adata_slNvs.obs['time'].values
+    # Seleccionar los genes de interes
+    genes_of_interest = ['DIP-gamma', 'DIP-beta', 'DIP-delta', 'DIP-theta', 'dpr8']
 
-# Ordenar los puntos del tiempo
-time_order = ['ZT02', 'ZT06', 'ZT10', 'ZT14', 'ZT18', 'ZT22']
+    # Crear el dotplot
+    sc.pl.dotplot(adata, var_names=genes_of_interest, groupby='Idents', standard_scale='var',)
 
-# Crear el grafico usando Seaborn pointplot
-plt.figure(figsize=(8, 5))
-sns.pointplot(data=df, x='time', y='per', order=time_order, estimator='mean', errorbar='se')
-plt.xlabel('Time (ZT)')
-plt.ylabel('Mean Expression of per')
-plt.title('Mean Expression in sLNVs Cluster Over Time')
-plt.grid(True)
-plt.show()
+    # Filtrar las celulas que pertenecen al cluster 'sLNVs'
+    adata_slNvs = adata[adata.obs['Idents'] == '2:s_LNv', :]
+    # adata_llNvs = adata[adata.obs['Idents'] == '25:l_LNv', :]
+
+    # Obtener los datos de expresion del gen
+    df = anndata_to_df(adata_slNvs[:, adata_slNvs.var['gene_names'].isin(genes_of_interest)])
+
+    # Crear el grafico usando Seaborn pointplot
+    plt.figure(figsize=(8, 5))
+    sns.pointplot(data=df, x='time', y='DIP-beta', estimator='mean', errorbar='se')
+    plt.xlabel('Time (ZT)')
+    plt.ylabel('Mean Expression of DIP-beta')
+    plt.title('Mean Expression in sLNVs Cluster Over Time')
+    plt.grid(True)
+    plt.show()
+
+
+def main():
+    adata = sc.read_h5ad('dataset_LD.h5ad')
+    filtered_adata = preprocess_pipeline(adata)
+    test_preprocess_pipeline(filtered_adata)
+
+
+if __name__ == '__main__':
+    main()
