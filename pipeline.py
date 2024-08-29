@@ -4,7 +4,9 @@ import seaborn as sns
 import pandas as pd
 import scanpy as sc
 from scanpy import AnnData
+import anndata as ad
 from dataset_handler import anndata_to_df
+
 
 sns.set_palette('deep')
 mpl.use('TkAgg')
@@ -75,7 +77,12 @@ def test_preprocess_pipeline(adata: AnnData) -> None:
 
 
 def main():
-    adata = sc.read_h5ad('dataset_LD.h5ad')
+    adata_ld = sc.read_h5ad('dataset_LD.h5ad')
+    adata_dd = sc.read_h5ad('dataset_DD.h5ad')
+    adata = ad.concat([adata_ld, adata_dd], join='inner')
+    genes_of_interest = ['DIP-gamma', 'DIP-beta', 'DIP-delta', 'DIP-theta', 'dpr8']
+    adata = adata[:, adata.var.index.isin(genes_of_interest)]
+    return
     filtered_adata = preprocess_pipeline(adata)
     test_preprocess_pipeline(filtered_adata)
 

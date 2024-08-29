@@ -4,11 +4,11 @@ import matplotlib as mpl
 import seaborn as sns
 import pandas as pd
 import scanpy as sc
-from dataset_handler import read_genexp_files, df_to_anndata, anndata_to_df
+import anndata as ad
 from typing import List
 from copy import deepcopy
-from numpy.random import random
-from time import time
+from dataset_handler import df_to_anndata, anndata_to_df
+from pipeline import preprocess_pipeline
 
 mpl.use('agg')
 sns.set_palette('deep')
@@ -22,19 +22,19 @@ def fetch_data(choice: List[str]) -> None:
         choice (List[str]): choice of genes to select from dataset
     """
     print(choice)
-    with st.spinner(text='Fetching data...'):
-        annot_df = pd.read_csv(ANNOT_PATH, index_col=0)
-        data_df = read_genexp_files(choice)
-        df = data_df.join(annot_df, how='inner')
-        st.success('Done')
-    
-    print(df.shape)
-
-    # Save data to session state
     st.session_state['genes'] = choice
-    st.session_state['dataframe'] = df
-    st.session_state['adata'] = df_to_anndata(df)
-    
+    with st.spinner(text='Fetching data...'):
+        ad_LD = sc.read_h5ad('dataset_LD.h5ad')
+        ad_DD = sc.read_h5ad('dataset_DD.h5ad')
+        adata = ad.concat([ad_LD, ad_DD], join='inner')
+        adata = adata[:, adata.var_names.isin(choice)]
+        print(adata.var_names)
+        # cache variables
+        st.session_state['adata'] = adata
+        st.session_state['dataframe'] = anndata_to_df(adata)
+
+    df = st.session_state['dataframe']
+    print(df.shape)
     # Save all found clusters
     idents = [i for i in df['Idents'].unique()]
     idents.sort(key=lambda x: int(x.split(':')[0]))
@@ -55,44 +55,34 @@ def make_dotplots() -> None:
     """
     Interactive dotplot builder for gene expression
     """
-    # Backend data reordeing
+    # Backend data reordering
     df = deepcopy(st.session_state['dataframe'])
     adata = deepcopy(st.session_state['adata'])
     exps = ['LD', 'DD']
 
     st.write('## Design your dotplots')
     condition_choice = st.multiselect("Select condition", exps, default='LD')
-    df_exp = df[df['condition'].isin(condition_choice)]
-    group = st.radio('Group by:', ['time', 'Idents'])
-    
-    # Select relevant data
-    if group == 'Idents':
-        adata_dotplot = df_to_anndata(df_exp)
-        extra_str = ''
+    adata_dotplot = adata[adata.obs['condition'].isin(condition_choice)].copy()
 
-    else:  # elif group == 'time':
+    # Group by
+    group = st.radio('Group by:', ['time', 'Idents'])
+    extra_str = ''
+    if group == 'time':
         idents = st.multiselect("Select a cluster", 
                                 st.session_state['Idents'], 
                                 default=st.session_state['Idents'][0])
-        df_group = df_exp[(df_exp['Idents'].isin(idents))]
-        adata_dotplot = df_to_anndata(df_group)
+        adata_dotplot = adata_dotplot[adata_dotplot.obs['Idents'].isin(idents)].copy()
         extra_str = f" for {','.join(idents)}"
 
-    # Preprocessing
-    st.write('Data preprocessing')
-    take_log = st.checkbox('Logarithmize')
+    # Plot!
     swap_axes = st.checkbox('Swap axes')
-
-    if take_log:
-        sc.pp.log1p(adata_dotplot)
-
     title = f"Gene expression by {group} at {','.join(condition_choice)}" + extra_str
     dotplot = sc.pl.DotPlot(adata_dotplot,
-                            var_names=adata.var_names,
+                            var_names=adata_dotplot.var_names,
                             groupby=group,
                             standard_scale='var',
                             vmin=-1,
-                            vmax=1,
+                            vmax=2,
                             var_group_rotation=0.,
                             edgecolors=None,
                             mean_only_expressed=True,
@@ -236,17 +226,19 @@ def main():
             
         # Pointplots
         with tab_point:
-            make_pointplots()
-            if len(st.session_state['pointplots']):
-                for figure in st.session_state['pointplots']:
-                    plt.legend()
-                    st.pyplot(figure)
+            st.write('developing')
+            # make_pointplots()
+            # if len(st.session_state['pointplots']):
+            #     for figure in st.session_state['pointplots']:
+            #         plt.legend()
+            #         st.pyplot(figure)
 
         # Heatmaps
         with tab_heat:
-            make_heatmap()
-            if st.session_state['heatmap'] is not None:
-                st.pyplot(st.session_state['heatmap'])
+            st.write('developing')
+            # make_heatmap()
+            # if st.session_state['heatmap'] is not None:
+            #     st.pyplot(st.session_state['heatmap'])
 
     else:
         st.write("Please select data to fetch.")
