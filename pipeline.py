@@ -29,7 +29,7 @@ def preprocess_pipeline(adata: AnnData,
         patterns_to_exclude = ['mt', 'rpls', 'rRNA', 'tRNA', 'ERCC', 'EGFP']
 
     # Filter genes
-    gene_names = adata.var['gene_names'].astype(str)
+    gene_names = adata.var_names.astype(str)
     filtered_genes = ~gene_names.str.contains('|'.join(patterns_to_exclude), regex=True)
     adata = adata[:, filtered_genes].copy()
 

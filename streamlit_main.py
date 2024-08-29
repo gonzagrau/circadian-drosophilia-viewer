@@ -27,11 +27,11 @@ def fetch_data(choice: List[str]) -> None:
         ad_LD = sc.read_h5ad('dataset_LD.h5ad')
         ad_DD = sc.read_h5ad('dataset_DD.h5ad')
         adata = ad.concat([ad_LD, ad_DD], join='inner')
-        adata = adata[:, adata.var_names.isin(choice)]
-        print(adata.var_names)
+        filtered_adata = preprocess_pipeline(adata)
+        final_adata = filtered_adata[:, filtered_adata.var_names.isin(choice)].copy()
         # cache variables
-        st.session_state['adata'] = adata
-        st.session_state['dataframe'] = anndata_to_df(adata)
+        st.session_state['adata'] = final_adata
+        st.session_state['dataframe'] = anndata_to_df(final_adata)
 
     df = st.session_state['dataframe']
     print(df.shape)
@@ -106,19 +106,16 @@ def make_pointplots() -> None:
     id_choice = st.multiselect("Pick a cluster", 
                                 st.session_state['Idents'], 
                                 default=st.session_state['Idents'][0])
-    
-    # Then, preprocess data
-    sc.pp.normalize_total(adata, target_sum=1e4, exclude_highly_expressed=True)
-    df = anndata_to_df(adata)
+
+    df = anndata_to_df(adata[adata.obs['Idents'].isin(id_choice)].copy())
     df['time'] = df['time'].apply(lambda x: x[2:])  # (ZT||CT)XX -> XX
-    df_clust = df[df['Idents'].isin(id_choice)]
 
     # Plot
     figures = []
     gene_palette = {"LD": 'turquoise', "DD": 'gray'}
     for i, gene in enumerate(adata.var_names):
         fig, ax = plt.subplots()
-        sns.pointplot(df_clust,
+        sns.pointplot(df,
                       x='time',
                       y=gene,
                       hue='condition',
@@ -226,16 +223,15 @@ def main():
             
         # Pointplots
         with tab_point:
-            st.write('developing')
-            # make_pointplots()
-            # if len(st.session_state['pointplots']):
-            #     for figure in st.session_state['pointplots']:
-            #         plt.legend()
-            #         st.pyplot(figure)
+            make_pointplots()
+            if len(st.session_state['pointplots']):
+                for figure in st.session_state['pointplots']:
+                    plt.legend()
+                    st.pyplot(figure)
 
         # Heatmaps
         with tab_heat:
-            st.write('developing')
+            st.write('Coming soon...')
             # make_heatmap()
             # if st.session_state['heatmap'] is not None:
             #     st.pyplot(st.session_state['heatmap'])
