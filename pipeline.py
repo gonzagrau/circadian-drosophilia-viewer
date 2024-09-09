@@ -9,7 +9,7 @@ from dataset_handler import anndata_to_df
 
 
 sns.set_palette('deep')
-mpl.use('TkAgg')
+# mpl.use('TkAgg')
 
 def preprocess_pipeline(adata: AnnData,
                         patterns_to_exclude: list | None = None,
