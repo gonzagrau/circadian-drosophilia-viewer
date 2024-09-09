@@ -10,7 +10,7 @@ from copy import deepcopy
 from dataset_handler import df_to_anndata, anndata_to_df
 from pipeline import preprocess_pipeline
 
-mpl.use('agg')
+mpl.use('TKAgg')
 sns.set_palette('deep')
 ANNOT_PATH = r"neuron_annotations.csv"
 

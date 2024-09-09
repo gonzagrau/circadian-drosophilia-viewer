@@ -1,1 +1,2 @@
+python3-tk
 libtk8.6
