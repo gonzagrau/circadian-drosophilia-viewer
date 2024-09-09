@@ -184,7 +184,7 @@ def main():
     # Page Title
     st.set_page_config(page_title="CircDrosView", page_icon="bar-chart")
     st.write("""
-    # Interactive visualizer for *A transcriptomic taxonomy of* Drosophilia *circadian neurons around the clock*
+    # Interactive visualizer for *A transcriptomic taxonomy of* Drosophila *circadian neurons around the clock*
              """)
 
     # Initialization
