@@ -14,23 +14,43 @@
 
 ## Installation guide
 
-Prerequisites: `python >= 3.11.9`
+**Prerequisites:** `python >= 3.11.9`, `git lfs`
 
-We reccommend creating a virtual environment for this project. For instance, using conda:
+First, if you don't have git lfs set up, please do so by running:
+
+*On Linux*:
+
+```
+sudo apt-get install git-lfs
+git lfs install
+```
+
+*On MacOS*:
+```
+brew install git-lfs
+git lfs install
+```
+
+*On Windows*:
+Git LFS should be downloaded by default, so we simply activate it by running
+```
+git lfs install
+```
+
+**To download this demo**, simply clone the repository
+
+Using HTTPS:
+```
+git clone https://github.com/gonzagrau/circadian-drosophilia-viewer
+```
+
+Then, install the required packages. We reccomend using a virtual environment. For instance, with conda:
 ```
 conda create -n circdrosvenv python=3.11.1
 conda activate circdrosvenv
 ```
 
-To download this demo, simply clone the repository
-
-Using SSH:
-```
-git clone git@github.com:gonzagrau/circadian-drosophilia-viewer.git
-```
-
-Then, install the required packages:
-
+Using pip, get the requirements
 ```
 pip install -r requirements.txt
 ```
