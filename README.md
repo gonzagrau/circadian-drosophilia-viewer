@@ -1,4 +1,4 @@
-# Circadian Drosophilia Viewer
+# Circadian Drosophila Viewer
 ## An interactive visualizer for Rosbash's _transcriptomic taxonomy of Drosophila circadian neurons around the clock (2021)_
 
 ### Step 1: select the genes you want to visualize
