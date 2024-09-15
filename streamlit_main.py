@@ -15,6 +15,7 @@ from pipeline import preprocess_pipeline
 
 # mpl.use('TKAgg')
 sns.set_palette('deep')
+heatmap_palette = sns.diverging_palette(240, 50, l=30, as_cmap=True)
 ANNOT_PATH = r"neuron_annotations.csv"
 
 @st.cache_data
@@ -148,19 +149,7 @@ def make_heatmap() -> None:
     Designs a heatmap and saves it to the session state
     """
     adata = deepcopy(st.session_state['adata'])
-
     take_log = st.toggle('Apply logarithm')
-    normalize_total = st.checkbox('Normalize count to 10k')
-
-    if take_log:
-        sc.pp.log1p(adata)
-
-    if normalize_total:
-        exclude_high = st.checkbox('Exclude highly expressed genes from normalization', value=True)
-        sc.pp.normalize_total(adata, target_sum=1e4,
-                      exclude_highly_expressed=exclude_high,
-                      inplace=False)
-    
     df = anndata_to_df(adata)
     
     # Pick clusters and times
@@ -177,9 +166,10 @@ def make_heatmap() -> None:
 
     # Plot
     fig, ax = plt.subplots()
+    ax.set_title(f'Inner cluster gene expression at {t_choice}')
     heatmap = sns.heatmap(df,
                           ax=ax,
-                          cmap='vlag', 
+                          cmap=heatmap_palette,
                           cbar=True,
                           center=0.05,
                           vmin=-3,
@@ -187,7 +177,6 @@ def make_heatmap() -> None:
                           yticklabels=False, 
                           xticklabels=True)
     st.session_state['heatmap'] = heatmap.figure   
-
 
 
 def main():
@@ -201,7 +190,7 @@ def main():
     with st.spinner(text='Initializing variables...'):
         with open('all_genes.txt', 'r') as f:
             genes = f.read().splitlines()
-        if 'dataframe' not in st.session_state:
+        if 'genes' not in st.session_state:
             st.session_state['genes'] = []
             st.session_state['full_adata'] = sc.AnnData()
             st.session_state['dataframe'] = pd.DataFrame()
@@ -229,12 +218,14 @@ def main():
         tab_dot, tab_point, tab_heat = st.tabs(['Dot plots', 'Point plots', 'Heatmaps'])
         # Dotplots
         with tab_dot:
+            plt.close()
             make_dotplots()
             if st.session_state['dotplot'] is not None:
                 st.pyplot(st.session_state['dotplot'])
             
         # Pointplots
         with tab_point:
+            plt.close()
             make_pointplots()
             if len(st.session_state['pointplots']):
                 for figure in st.session_state['pointplots']:
@@ -243,10 +234,11 @@ def main():
 
         # Heatmaps
         with tab_heat:
+            plt.close()
             st.write('Coming soon...')
-            # make_heatmap()
-            # if st.session_state['heatmap'] is not None:
-            #     st.pyplot(st.session_state['heatmap'])
+            make_heatmap()
+            if st.session_state['heatmap'] is not None:
+                st.pyplot(st.session_state['heatmap'])
 
     else:
         st.write("Please select data to fetch.")
