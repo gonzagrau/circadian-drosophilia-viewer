@@ -26,7 +26,7 @@ def get_full_adata() -> AnnData:
     ad_LD, ad_DD = load_h5ad_files()
     adata = ad.concat([ad_LD, ad_DD], join='inner')
     filtered_adata = preprocess_pipeline(adata)
-    st.session_state.full_adata = filtered_adata
+    st.session_state['full_adata'] = filtered_adata
     return filtered_adata
 
 @st.cache_data
@@ -39,7 +39,7 @@ def fetch_data(choice: List[str]) -> None:
     print(f"User gene choice: {choice}")
     st.session_state['genes'] = choice
     with st.spinner(text='Fetching data...'):
-        filtered_adata = st.session_state.full_adata
+        filtered_adata = st.session_state['full_adata']
         final_adata = filtered_adata[:, filtered_adata.var_names.isin(choice)].copy()
         # cache variables
         st.session_state['adata'] = final_adata
