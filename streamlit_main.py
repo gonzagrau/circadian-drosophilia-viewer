@@ -39,7 +39,7 @@ def fetch_data(choice: List[str]) -> None:
     print(f"User gene choice: {choice}")
     st.session_state['genes'] = choice
     with st.spinner(text='Fetching data...'):
-        filtered_adata = st.session_state['full_adata']
+        filtered_adata = get_full_adata()
         final_adata = filtered_adata[:, filtered_adata.var_names.isin(choice)].copy()
         # cache variables
         st.session_state['adata'] = final_adata
@@ -203,6 +203,7 @@ def main():
             genes = f.read().splitlines()
         if 'dataframe' not in st.session_state:
             st.session_state['genes'] = []
+            st.session_state['full_adata'] = sc.AnnData()
             st.session_state['dataframe'] = pd.DataFrame()
             st.session_state['adata'] = sc.AnnData()
             st.session_state['Idents'] = []
