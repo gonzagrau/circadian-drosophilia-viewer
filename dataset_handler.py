@@ -1,15 +1,44 @@
 import os
-import re
+import gdown
 import pandas as pd
-from datetime import date
 from anndata import AnnData
 import time
-from typing import List
+from typing import List, Tuple
+from scanpy import read_h5ad
 
 
 with open('all_genes.txt', 'r') as f:
     ALL_GENES = f.read().splitlines()[1:]
 
+DD_DATA_URL = r'https://drive.google.com/uc?id=1jewJcYuaPyVE327VI0viPP-9kjtFCx_7'
+LD_DATA_URL = r' https://drive.google.com/uc?id=1KF4ce-rdJ7-PPumVlka2bFwoxV0Db1av'
+
+
+def load_h5ad_files(datadir: str = 'dataset',
+                    DD_url: str = DD_DATA_URL,
+                    LD_url: str = LD_DATA_URL) -> Tuple[AnnData, AnnData]:
+    """
+    Fetches data from h5ad files. If they do not exist, they are downloaded.
+    Args:
+        datadir: where to find the h5ad files, if they exist
+        DD_url: url to download the data from dark-dark experiments
+        LD_url: url to download the data from light-dark experiments
+
+    Returns:
+        a tuple containing anndata objects of LD and DD experiments, respectively.
+    """
+    if not os.path.exists(datadir):
+        os.makedirs(datadir)
+
+    datapaths = [os.path.join(datadir, f'dataset_{cond}.h5ad') for cond in ['DD', 'LD']]
+    if not all([os.path.exists(dpath) for dpath in datapaths]):
+        gdown.download(DD_url, datapaths[0], quiet=False)
+        gdown.download(LD_url, datapaths[1], quiet=False)
+
+    ad_LD = read_h5ad(os.path.join(datadir, 'dataset_LD.h5ad'))
+    ad_DD = read_h5ad(os.path.join(datadir, 'dataset_DD.h5ad'))
+
+    return ad_LD, ad_DD
 
 def read_genexp_files(genes: List[str] | None = None,
                       data_path: str = r'dataset/') -> pd.DataFrame:
@@ -110,4 +139,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    #main()
+    load_h5ad_files()

@@ -16,23 +16,23 @@ def list_indeces(filepath: str) -> list[str]:
 
 
 def main():
-    LD_path = r'..\..\dataset\GSM4768068_ZT02_20190309_AR08.csv'
+    LD_path = r'data_subsets/GSM4768102_ZT22_20190309_AR01.csv'
     LD_genes = list_indeces(LD_path)
     LD_genes.sort()
-    DD_path = r'..\..\dataset\GSM4768021_CT02_20190528_AR06.csv'
+    DD_path = r'data_subsets/GSM4768057_CT18_20190710_AR18.csv'
     DD_genes = list_indeces(DD_path)
     DD_genes.sort()
 
-    all_genes = set(LD_genes).union(set(DD_genes))
+    all_genes = set(LD_genes).intersection(set(DD_genes))
     all_genes = list(all_genes)
     all_genes.sort()
     print(len(all_genes))
 
-    with open('../database connection/LD_genes.txt', 'w') as file:
+    with open('../LD_genes.txt', 'w') as file:
         for gene in LD_genes:
             file.write(f"{gene}\n")
 
-    with open('../database connection/DD_genes.txt', 'w') as file:
+    with open('../DD_genes.txt', 'w') as file:
         for gene in DD_genes:
             file.write(f"{gene}\n")
 

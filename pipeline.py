@@ -77,8 +77,8 @@ def test_preprocess_pipeline(adata: AnnData) -> None:
 
 
 def main():
-    adata_ld = sc.read_h5ad('dataset_LD.h5ad')
-    adata_dd = sc.read_h5ad('dataset_DD.h5ad')
+    adata_ld = sc.read_h5ad('dataset/dataset_LD.h5ad')
+    adata_dd = sc.read_h5ad('dataset/dataset_DD.h5ad')
     adata = ad.concat([adata_ld, adata_dd], join='inner')
     genes_of_interest = ['DIP-gamma', 'DIP-beta', 'DIP-delta', 'DIP-theta', 'dpr8']
     adata = adata[:, adata.var.index.isin(genes_of_interest)]

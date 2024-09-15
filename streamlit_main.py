@@ -7,36 +7,46 @@ import scanpy as sc
 import anndata as ad
 from typing import List
 from copy import deepcopy
-from dataset_handler import df_to_anndata, anndata_to_df
+
+from anndata import AnnData
+
+from dataset_handler import df_to_anndata, anndata_to_df, load_h5ad_files
 from pipeline import preprocess_pipeline
 
 # mpl.use('TKAgg')
 sns.set_palette('deep')
 ANNOT_PATH = r"neuron_annotations.csv"
 
+@st.cache_data
+def get_full_adata() -> AnnData:
+    """
+    Get the anndata objects from the h5ad files in the dataset folder, and caches it.
+    Refer to dataset_handler.load_h5ad_files() for further information
+    """
+    ad_LD, ad_DD = load_h5ad_files()
+    adata = ad.concat([ad_LD, ad_DD], join='inner')
+    filtered_adata = preprocess_pipeline(adata)
+    st.session_state.full_adata = filtered_adata
+    return filtered_adata
 
+@st.cache_data
 def fetch_data(choice: List[str]) -> None:
     """
     Reads data from csv files and stores it in session state
     Args:
         choice (List[str]): choice of genes to select from dataset
     """
-    print(choice)
+    print(f"User gene choice: {choice}")
     st.session_state['genes'] = choice
     with st.spinner(text='Fetching data...'):
-        ad_LD = sc.read_h5ad('dataset_LD.h5ad')
-        ad_DD = sc.read_h5ad('dataset_DD.h5ad')
-        adata = ad.concat([ad_LD, ad_DD], join='inner')
-        filtered_adata = preprocess_pipeline(adata)
+        filtered_adata = st.session_state.full_adata
         final_adata = filtered_adata[:, filtered_adata.var_names.isin(choice)].copy()
         # cache variables
         st.session_state['adata'] = final_adata
         st.session_state['dataframe'] = anndata_to_df(final_adata)
 
-    df = st.session_state['dataframe']
-    print(df.shape)
     # Save all found clusters
-    idents = [i for i in df['Idents'].unique()]
+    idents = [i for i in st.session_state.dataframe['Idents'].unique()]
     idents.sort(key=lambda x: int(x.split(':')[0]))
     st.session_state['Idents'] = idents
 
@@ -199,6 +209,7 @@ def main():
             st.session_state['dotplot'] = None
             st.session_state['pointplots'] = []
             st.session_state['heatmap'] = None
+        get_full_adata()
 
     # Gene selection
     st.write('## Step 1: select genes to analyze')
