@@ -1,15 +1,11 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import seaborn as sns
 import pandas as pd
 import scanpy as sc
 import anndata as ad
 from typing import List
 from copy import deepcopy
-
-from anndata import AnnData
-
 from dataset_handler import df_to_anndata, anndata_to_df, load_h5ad_files
 from pipeline import preprocess_pipeline
 
@@ -19,7 +15,7 @@ heatmap_palette = sns.diverging_palette(240, 50, l=30, as_cmap=True)
 ANNOT_PATH = r"neuron_annotations.csv"
 
 @st.cache_data
-def get_full_adata() -> AnnData:
+def get_full_adata() -> ad.AnnData:
     """
     Get the anndata objects from the h5ad files in the dataset folder, and caches it.
     Refer to dataset_handler.load_h5ad_files() for further information
@@ -85,11 +81,14 @@ def make_dotplots() -> None:
         adata_dotplot = adata_dotplot[adata_dotplot.obs['Idents'].isin(idents)].copy()
         extra_str = f" for {','.join(idents)}"
 
+    # Choose gene subset
+    var_names = st.multiselect("Select genes in order", adata.var_names.unique(), default=st.session_state['genes'])
+
     # Plot!
     swap_axes = st.checkbox('Swap axes')
     title = f"Gene expression by {group} at {','.join(condition_choice)}" + extra_str
     dotplot = sc.pl.DotPlot(adata_dotplot,
-                            var_names=adata_dotplot.var_names,
+                            var_names=var_names,
                             groupby=group,
                             standard_scale='var',
                             vmin=-1,
