@@ -2,4 +2,5 @@ __pycache__/
 dataset/
 tests_and_preprocessing/.env
 database connection/.env
-/.idea/
+.idea/
+*.h5ad
