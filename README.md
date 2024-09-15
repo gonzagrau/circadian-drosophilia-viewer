@@ -2,7 +2,8 @@
 ## An interactive visualizer for Rosbash's _transcriptomic taxonomy of Drosophila circadian neurons around the clock (2021)_
 
 ### Step 1: select the genes you want to visualize
-![image](https://github.com/user-attachments/assets/547b204f-b112-4ddd-a912-d7a440e4cc7a)
+![image](https://github.com/user-attachments/assets/2d963894-13b8-40fc-8586-dea2c1881fe4)
+
 
 ### Step 2: download the normalized, annotated data as a csv
 ![image](https://github.com/user-attachments/assets/0de6ca2e-b159-4d3e-a12e-9d6946b85aa6)
