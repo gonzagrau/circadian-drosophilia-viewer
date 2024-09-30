@@ -34,6 +34,7 @@ def get_full_adata() -> ad.AnnData:
     adata = ad.concat([ad_LD, ad_DD], join='inner')
     filtered_adata = preprocess_pipeline(adata)
     st.session_state['full_adata'] = filtered_adata
+    st.session_state['genes'] = filtered_adata.var_names
     return filtered_adata
 
 
@@ -289,8 +290,6 @@ def main():
 
     # Initialization
     with st.spinner(text='Initializing variables...'):
-        with open('all_genes.txt', 'r') as f:
-            genes = f.read().splitlines()
         if 'genes' not in st.session_state:
             st.session_state['genes'] = []
             st.session_state['full_adata'] = sc.AnnData()
@@ -306,7 +305,7 @@ def main():
     # Gene selection
     st.write('## Step 1: select genes to analyze')
     with st.form(key="input_parameters"):
-        choice = st.multiselect("Choose your genes", genes)
+        choice = st.multiselect("Choose your genes", st.session_state['genes'])
         submit = st.form_submit_button("Submit")
 
     if submit:
