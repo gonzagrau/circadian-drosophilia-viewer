@@ -7,9 +7,6 @@ from typing import List, Tuple
 from scanpy import read_h5ad
 
 
-with open('../all_genes.txt', 'r') as f:
-    ALL_GENES = f.read().splitlines()[1:]
-
 DD_DATA_URL = r'https://drive.google.com/uc?id=1jewJcYuaPyVE327VI0viPP-9kjtFCx_7'
 LD_DATA_URL = r' https://drive.google.com/uc?id=1KF4ce-rdJ7-PPumVlka2bFwoxV0Db1av'
 

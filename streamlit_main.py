@@ -323,16 +323,17 @@ def main():
 
     # Initialization
     with st.spinner(text="Initializing variables..."):
-        st.session_state["genes"] = []
-        st.session_state["full_adata"] = sc.AnnData()
-        st.session_state["dataframe"] = pd.DataFrame()
-        st.session_state["adata"] = sc.AnnData()
-        st.session_state["Idents"] = []
-        st.session_state["dotplot"] = None
-        st.session_state["pointplots"] = []
-        st.session_state["heatmap"] = None
-        st.session_state["matrixplot"] = None
-        get_full_adata()
+        if "genes" not in st.session_state:
+            st.session_state["genes"] = []
+            st.session_state["full_adata"] = sc.AnnData()
+            st.session_state["dataframe"] = pd.DataFrame()
+            st.session_state["adata"] = sc.AnnData()
+            st.session_state["Idents"] = []
+            st.session_state["dotplot"] = None
+            st.session_state["pointplots"] = []
+            st.session_state["heatmap"] = None
+            st.session_state["matrixplot"] = None
+            get_full_adata()
 
     # Gene selection
     st.write("## Step 1: select genes to analyze")
