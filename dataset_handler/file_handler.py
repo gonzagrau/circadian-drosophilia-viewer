@@ -7,7 +7,7 @@ from typing import List, Tuple
 from scanpy import read_h5ad
 
 
-with open('all_genes.txt', 'r') as f:
+with open('../all_genes.txt', 'r') as f:
     ALL_GENES = f.read().splitlines()[1:]
 
 DD_DATA_URL = r'https://drive.google.com/uc?id=1jewJcYuaPyVE327VI0viPP-9kjtFCx_7'
@@ -115,7 +115,7 @@ def anndata_to_df(adata: AnnData) -> pd.DataFrame:
 def main():
     # Test 1: read from raw data
     genes = ["DIP-gamma", "DIP-beta", "DIP-delta", "DIP-theta", "dpr8"]
-    annot_path = 'neuron_annotations.csv'
+    annot_path = '../neuron_annotations.csv'
     annot_df = pd.read_csv(annot_path, index_col=0)
     start = time.time()
     genexp_df = read_genexp_files(genes)

@@ -7,7 +7,7 @@ import anndata as ad
 from typing import List, Tuple
 from copy import deepcopy
 from dataset_handler import df_to_anndata, anndata_to_df, load_h5ad_files
-from pipeline import preprocess_pipeline
+from dataset_handler import preprocess_pipeline
 
 
 ####################################################################################
