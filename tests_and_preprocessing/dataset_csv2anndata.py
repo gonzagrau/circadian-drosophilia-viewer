@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-from dataset_handler import read_genexp_files
 import anndata as ad
 
 ANNOT_PATH = "C:/Users/Tassara/Documents/Doctorado/circadian-drosophilia-viewer-main/neuron_annotations.csv"

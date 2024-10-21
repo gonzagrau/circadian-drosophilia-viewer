@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import List
 
-
 def get_date(neuron: str) -> date:
     """
     Extracts date data from singular index
