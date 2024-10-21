@@ -1,7 +1,5 @@
 __pycache__/
 dataset/
-tests_and_preprocessing/.env
-database connection/.env
+*.env
 .idea/
 *.h5ad
-test_heatmap.ipynb

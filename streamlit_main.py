@@ -42,7 +42,7 @@ def get_full_adata() -> ad.AnnData:
 @st.cache_data
 def fetch_data(choice: List[str]) -> None:
     """
-    Reads data from csv files and stores it in session state
+    Reads data from master anndata and stores it in session state
     Args:
         choice (List[str]): choice of genes to select from dataset
     """
@@ -111,9 +111,9 @@ def compile_scplot(
 
 
 @st.cache_data
-def compile_pointplots(
-    df: pd.DataFrame, genes: List[str], id_choice: List[str]
-) -> List[plt.figure]:
+def compile_pointplots(df: pd.DataFrame,
+                       genes: List[str],
+                       id_choice: List[str]) -> List[plt.figure]:
     """
     Generates day-long expression plots for all selected genes in both conditions.
     """
@@ -323,16 +323,15 @@ def main():
 
     # Initialization
     with st.spinner(text="Initializing variables..."):
-        if "genes" not in st.session_state:
-            st.session_state["genes"] = []
-            st.session_state["full_adata"] = sc.AnnData()
-            st.session_state["dataframe"] = pd.DataFrame()
-            st.session_state["adata"] = sc.AnnData()
-            st.session_state["Idents"] = []
-            st.session_state["dotplot"] = None
-            st.session_state["pointplots"] = []
-            st.session_state["heatmap"] = None
-            st.session_state["matrixplot"] = None
+        st.session_state["genes"] = []
+        st.session_state["full_adata"] = sc.AnnData()
+        st.session_state["dataframe"] = pd.DataFrame()
+        st.session_state["adata"] = sc.AnnData()
+        st.session_state["Idents"] = []
+        st.session_state["dotplot"] = None
+        st.session_state["pointplots"] = []
+        st.session_state["heatmap"] = None
+        st.session_state["matrixplot"] = None
         get_full_adata()
 
     # Gene selection
