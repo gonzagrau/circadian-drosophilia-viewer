@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import scanpy as sc
+import numpy as np
 import anndata as ad
 from typing import List
 from copy import deepcopy
@@ -11,8 +12,14 @@ from dataset_handler import anndata_to_df, load_h5ad_files, preprocess_pipeline
 sns.set_palette('deep')
 heatmap_palette = sns.diverging_palette(240, 50, l=30, as_cmap=True)
 ANNOT_PATH = r"neuron_annotations.csv"
+HEATMAP_PALETTE = sns.diverging_palette(240, 50, l=30, as_cmap=True)
+COND_PALETTE =  {"LD": 'turquoise', "DD": 'gray'}
 
+####################################################################################
+#                            CACHED FUNCTIONS                                      #
+####################################################################################
 
+@st.cache_data
 def get_full_adata() -> ad.AnnData:
     """
     Get the anndata objects from the h5ad files in the dataset folder, and caches it.
@@ -25,6 +32,7 @@ def get_full_adata() -> ad.AnnData:
     return filtered_adata
 
 
+@st.cache_data
 def fetch_data(choice: List[str]) -> None:
     """
     Reads data from csv files and stores it in session state
@@ -46,15 +54,110 @@ def fetch_data(choice: List[str]) -> None:
     st.session_state['Idents'] = idents
 
 
-def idents_multiselect(key: str) -> List[str]:
+@st.cache_data
+def compile_scplot(plot_type: str,
+                   _adata_plot: ad.AnnData,
+                   group: str,
+                   condition_choice: List[str],
+                   var_names: List[str],
+                   extra_str: str,
+                   swap_axes: bool) -> plt.figure:
     """
-    Widget to select one or more neuron clusters
-    Returns:
-        List[str]: selected clusters
+    Given a predesigned plot object, make its figure and save it
     """
-    idents = st.session_state['Idents']
-    return st.multiselect("Select a cluster", idents, default=idents[0], key=key)
+    assert plot_type in ['dotplot', 'matrixplot']
+    title = f"Gene expression by {group} at {', '.join(condition_choice)}" + extra_str
 
+    if plot_type == 'dotplot':
+        plot_obj = sc.pl.DotPlot(_adata_plot,
+                               var_names=var_names,
+                               groupby=group,
+                               standard_scale='var',
+                               vmin=-1,
+                               vmax=2,
+                               var_group_rotation=0.,
+                               edgecolors=None,
+                               mean_only_expressed=True,
+                               title=title,
+                               cmap='Reds',
+                               linewidth=0.)
+    elif plot_type == 'matrixplot':
+        plot_obj = sc.pl.MatrixPlot(_adata_plot,
+                                  var_names=var_names,
+                                  groupby=group,
+                                  standard_scale='var',
+                                  var_group_rotation=0.,
+                                  title=title,
+                                  vmin=-1,
+                                  vmax=2,
+                                  cmap='viridis')
+    else:
+        raise ValueError("Invalid plot type")
+
+    if swap_axes:
+        plot_obj.swap_axes()
+    plot_obj.make_figure()
+    return plot_obj.fig
+
+
+@st.cache_data
+def compile_pointplots(df: pd.DataFrame,
+                       genes: List[str],
+                       id_choice: List[str]) -> List[plt.figure]:
+    """
+    Generates day-long expression plots for all selected genes in both conditions.
+    """
+    figures = []
+    for i, gene in enumerate(genes):
+        fig, ax = plt.subplots()
+        sns.pointplot(df,
+                      x='time',
+                      y=gene,
+                      hue='condition',
+                      estimator='mean',
+                      errorbar='se',
+                      palette=COND_PALETTE,
+                      capsize=0.2,
+                      linewidth=1.5,
+                      ax=ax,)
+        ax.set_ylabel('Gene expression (TP10K)')
+        ax.set_title(f"{gene} expression in {', '.join(id_choice)}")
+        figures.append(fig)
+    return figures
+
+
+@st.cache_data
+def compile_heterogeneity(df: pd.DataFrame,
+                          id_choice: List[str],
+                          t_choice: List[str]) -> plt.figure:
+    """
+    Generates a heatmap of heterogeneity for a given cluster at a given time
+    Args:
+        df: preprocessed dataframe for gene expression
+        id_choice: chosen cluster
+        t_choice: chosen time
+
+    Returns:
+        plt.figure: the heatmap figure
+    """
+
+    fig, ax = plt.subplots()
+    ax.set_title(f"Heterogeneity for {', '.join(id_choice)} at {t_choice}")
+    hmap = sns.heatmap(df,
+                      ax=ax,
+                      cmap=HEATMAP_PALETTE,
+                      cbar=True,
+                      center=0,
+                      vmin=-3,
+                      vmax=3,
+                      yticklabels=False,
+                      xticklabels=True)
+    return hmap.figure
+
+
+####################################################################################
+#                        FUNCTIONS INVOLVING WIDGETS                               #
+####################################################################################
 
 def make_dotplots() -> None:
     """
@@ -65,7 +168,7 @@ def make_dotplots() -> None:
     exps = ['LD', 'DD']
 
     st.write('## Select data to display')
-    condition_choice = st.multiselect("Select light condition", exps, default='LD', key=f"cond_dot")
+    condition_choice = st.multiselect("Select light condition", exps, default='LD', key="cond_dot")
     adata_plot = adata[adata.obs['condition'].isin(condition_choice)].copy()
 
     # Group by
@@ -75,34 +178,25 @@ def make_dotplots() -> None:
         idents = st.multiselect("Select a cluster",
                                 st.session_state['Idents'],
                                 default=st.session_state['Idents'][0],
-                                key=f"cluster_dot")
+                                key="cluster_dot")
         adata_plot = adata_plot[adata_plot.obs['Idents'].isin(idents)].copy()
         extra_str = f" for {','.join(idents)}"
 
     # Choose gene subset
     var_names = st.multiselect("Select genes in order", adata_plot.var_names.unique(),
                                default=st.session_state['genes'],
-                               key=f"vnames_dot")
+                               key="vnames_dot")
 
     # Plot!
-    swap_axes = st.checkbox('Swap axes', key='swap_axes_dot')
-    title = f"Gene expression by {group} at {','.join(condition_choice)}" + extra_str
-    dotplot = sc.pl.DotPlot(adata_plot,
-                            var_names=var_names,
-                            groupby=group,
-                            standard_scale='var',
-                            vmin=-1,
-                            vmax=2,
-                            var_group_rotation=0.,
-                            edgecolors=None,
-                            mean_only_expressed=True,
-                            title=title,
-                            cmap='Reds',
-                            linewidth=0.)
-    if swap_axes:
-        dotplot.swap_axes()
-    dotplot.make_figure()
-    st.session_state['dotplot'] = dotplot.fig
+    swap_axes = st.checkbox('Swap axes', key='swap_dot')
+    fig = compile_scplot('dotplot',
+                         _adata_plot=adata_plot,
+                         group=group,
+                         condition_choice=condition_choice,
+                         var_names=var_names,
+                         extra_str=extra_str,
+                         swap_axes=swap_axes)
+    st.session_state['dotplot'] = fig
 
 
 def make_pointplots() -> None:
@@ -116,29 +210,13 @@ def make_pointplots() -> None:
     id_choice = st.multiselect("Pick a cluster",
                                st.session_state['Idents'],
                                default=st.session_state['Idents'][0],
-                               key=f"cluster_point")
+                               key="cluster_point")
 
     df = anndata_to_df(adata[adata.obs['Idents'].isin(id_choice)].copy())
     df['time'] = df['time'].apply(lambda x: x[2:])  # (ZT||CT)XX -> XX
 
     # Plot
-    figures = []
-    gene_palette = {"LD": 'turquoise', "DD": 'gray'}
-    for i, gene in enumerate(adata.var_names):
-        fig, ax = plt.subplots()
-        sns.pointplot(df,
-                      x='time',
-                      y=gene,
-                      hue='condition',
-                      estimator='mean',
-                      errorbar='se',
-                      palette=gene_palette,
-                      capsize=0.2,
-                      linewidth=1.5,
-                      ax=ax, )
-        ax.set_ylabel('Gene expression (TP10K)')
-        ax.set_title(f"{gene} expression in {', '.join(id_choice)}")
-        figures.append(fig)
+    figures = compile_pointplots(df, list(adata.var_names), id_choice)
 
     # Save
     st.session_state['pointplots'] = figures
@@ -152,6 +230,8 @@ def make_heterogeneity_heatmap() -> None:
     st.write('Inner cluster heterogeneity at a given time')
     adata = deepcopy(st.session_state['adata'])
     take_log = st.toggle('Apply logarithm')
+    if take_log:
+        sc.pp.log1p(adata)
     df = anndata_to_df(adata)
 
     # Pick clusters and times
@@ -169,18 +249,8 @@ def make_heterogeneity_heatmap() -> None:
     df = df - df.mean(axis=0)
 
     # Plot
-    fig, ax = plt.subplots()
-    ax.set_title(f"Heterogeneity for {', '.join(id_choice)} at {t_choice}")
-    heatmap = sns.heatmap(df,
-                          ax=ax,
-                          cmap=heatmap_palette,
-                          cbar=True,
-                          center=0,
-                          vmin=-3,
-                          vmax=3,
-                          yticklabels=False,
-                          xticklabels=True)
-    st.session_state['heatmap'] = heatmap.figure
+    fig = compile_heterogeneity(df, id_choice, t_choice)
+    st.session_state['heatmap'] = fig
 
 
 def make_matrixplots() -> None:
@@ -216,20 +286,19 @@ def make_matrixplots() -> None:
     swap_axes = st.checkbox('Show groups in X axis', key='swap_axes_mat')
 
     # Plot!
-    title = f"Mean gene expression by {group} at {','.join(condition_choice)}" + extra_str
-    matrixplot = sc.pl.MatrixPlot(adata_plot,
-                                  var_names=var_names,
-                                  groupby=group,
-                                  var_group_rotation=0.,
-                                  title=title,
-                                  vmin=-1,
-                                  vmax=2,
-                                  cmap='viridis')
-    if swap_axes:
-        matrixplot.swap_axes()
-    matrixplot.make_figure()
-    st.session_state['matrixplot'] = matrixplot.fig
+    fig = compile_scplot(plot_type='matrixplot',
+                         _adata_plot=adata_plot,
+                         group=group,
+                         condition_choice=condition_choice,
+                         var_names=var_names,
+                         extra_str=extra_str,
+                         swap_axes=swap_axes)
+    st.session_state['matrixplot'] = fig
 
+
+####################################################################################
+#                                MAIN UI                                           #
+####################################################################################
 
 def main():
     # Page Title
@@ -268,8 +337,10 @@ def main():
         df = st.session_state['dataframe']
         st.dataframe(df)
 
-        tab_dot, tab_point, tab_het, tab_mat = st.tabs(
-            ['Dot plots', 'Point plots', 'Heterogeneity heatmap', 'Matrix plot'])
+        tab_dot, tab_point, tab_het, tab_mat = st.tabs(['Dot plots',
+                                                        'Point plots',
+                                                        'Heterogeneity heatmap',
+                                                        'Matrix plot'])
         # Dotplots
         with tab_dot:
             plt.close()

@@ -1,4 +1,4 @@
-matplotlib
+matplotlib~=3.9.2
 numpy==1.26.4
 pandas==2.2.2
 pillow==10.4.0
@@ -13,3 +13,5 @@ gdown==5.2.0
 leidenalg==0.10.2
 jupyter==1.1.1
 python-igraph
+anndata~=0.10.8
+pymysql~=1.1.1
