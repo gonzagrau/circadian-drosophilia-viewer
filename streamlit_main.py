@@ -3,17 +3,64 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import scanpy as sc
-import numpy as np
 import anndata as ad
 from typing import List
 from copy import deepcopy
-from dataset_handler import anndata_to_df, load_h5ad_files, preprocess_pipeline
+from dataset_handler.file_handler import anndata_to_df, load_filtered_adata
 
-sns.set_palette('deep')
-heatmap_palette = sns.diverging_palette(240, 50, l=30, as_cmap=True)
-ANNOT_PATH = r"neuron_annotations.csv"
-HEATMAP_PALETTE = sns.diverging_palette(240, 50, l=30, as_cmap=True)
-COND_PALETTE =  {"LD": 'turquoise', "DD": 'gray'}
+####################################################################################
+#                            GLOBAL VARIABLES                                      #
+####################################################################################
+global COND_PALETTE
+
+
+def color_theme_setup() -> None:
+    """
+    Change default plt config to match selected colorthem
+    """
+
+    global COND_PALETTE
+    # Detect the user's theme
+    is_dark_mode = st.get_option("theme.base") == "dark"
+
+    # Set the color palette and matplotlib rcParams based on the theme
+    if is_dark_mode:
+        sns.set_palette('dark')
+        COND_PALETTE = {"LD": 'lightblue', "DD": 'gray'}
+        plt.rcParams.update({
+            "axes.facecolor": "black",
+            "axes.edgecolor": "white",
+            "axes.labelcolor": "white",
+            "figure.facecolor": "black",
+            "figure.edgecolor": "black",
+            "grid.color": "gray",
+            "text.color": "white",
+            "xtick.color": "white",
+            "ytick.color": "white",
+            "savefig.facecolor": "black",
+            "savefig.edgecolor": "black"
+        })
+    else:
+        sns.set_palette('deep')
+        COND_PALETTE = {"LD": 'turquoise', "DD": 'gray'}
+        plt.rcParams.update({
+            "axes.facecolor": "white",
+            "axes.edgecolor": "black",
+            "axes.labelcolor": "black",
+            "figure.facecolor": "white",
+            "figure.edgecolor": "white",
+            "grid.color": "gray",
+            "text.color": "black",
+            "xtick.color": "black",
+            "ytick.color": "black",
+            "savefig.facecolor": "white",
+            "savefig.edgecolor": "white"
+        })
+
+
+# List of colormaps
+COLORMAPS = plt.colormaps()
+
 
 ####################################################################################
 #                            CACHED FUNCTIONS                                      #
@@ -25,11 +72,9 @@ def get_full_adata() -> ad.AnnData:
     Get the anndata objects from the h5ad files in the dataset folder, and caches it.
     Refer to dataset_handler.load_h5ad_files() for further information
     """
-    ad_LD, ad_DD = load_h5ad_files()
-    adata = ad.concat([ad_LD, ad_DD], join='inner')
-    filtered_adata = preprocess_pipeline(adata)
-    st.session_state['full_adata'] = filtered_adata
-    return filtered_adata
+    adata = load_filtered_adata()
+    st.session_state['full_adata'] = adata
+    return adata
 
 
 @st.cache_data
@@ -61,7 +106,8 @@ def compile_scplot(plot_type: str,
                    condition_choice: List[str],
                    var_names: List[str],
                    extra_str: str,
-                   swap_axes: bool) -> plt.figure:
+                   swap_axes: bool,
+                   cmap: str = 'Reds') -> plt.figure:
     """
     Given a predesigned plot object, make its figure and save it
     """
@@ -70,27 +116,27 @@ def compile_scplot(plot_type: str,
 
     if plot_type == 'dotplot':
         plot_obj = sc.pl.DotPlot(_adata_plot,
-                               var_names=var_names,
-                               groupby=group,
-                               standard_scale='var',
-                               vmin=-1,
-                               vmax=2,
-                               var_group_rotation=0.,
-                               edgecolors=None,
-                               mean_only_expressed=True,
-                               title=title,
-                               cmap='Reds',
-                               linewidth=0.)
+                                 var_names=var_names,
+                                 groupby=group,
+                                 standard_scale='var',
+                                 vmin=-1,
+                                 vmax=2,
+                                 var_group_rotation=0.,
+                                 edgecolors=None,
+                                 mean_only_expressed=True,
+                                 title=title,
+                                 cmap=cmap,
+                                 linewidth=0.)
     elif plot_type == 'matrixplot':
         plot_obj = sc.pl.MatrixPlot(_adata_plot,
-                                  var_names=var_names,
-                                  groupby=group,
-                                  standard_scale='var',
-                                  var_group_rotation=0.,
-                                  title=title,
-                                  vmin=-1,
-                                  vmax=2,
-                                  cmap='viridis')
+                                    var_names=var_names,
+                                    groupby=group,
+                                    standard_scale='var',
+                                    var_group_rotation=0.,
+                                    title=title,
+                                    vmin=-1,
+                                    vmax=2,
+                                    cmap=cmap)
     else:
         raise ValueError("Invalid plot type")
 
@@ -119,7 +165,7 @@ def compile_pointplots(df: pd.DataFrame,
                       palette=COND_PALETTE,
                       capsize=0.2,
                       linewidth=1.5,
-                      ax=ax,)
+                      ax=ax, )
         ax.set_ylabel('Gene expression (TP10K)')
         ax.set_title(f"{gene} expression in {', '.join(id_choice)}")
         figures.append(fig)
@@ -129,13 +175,15 @@ def compile_pointplots(df: pd.DataFrame,
 @st.cache_data
 def compile_heterogeneity(df: pd.DataFrame,
                           id_choice: List[str],
-                          t_choice: List[str]) -> plt.figure:
+                          t_choice: List[str],
+                          cmap: str = 'viridis') -> plt.figure:
     """
     Generates a heatmap of heterogeneity for a given cluster at a given time
     Args:
         df: preprocessed dataframe for gene expression
         id_choice: chosen cluster
         t_choice: chosen time
+        cmap: colormap to use
 
     Returns:
         plt.figure: the heatmap figure
@@ -144,15 +192,47 @@ def compile_heterogeneity(df: pd.DataFrame,
     fig, ax = plt.subplots()
     ax.set_title(f"Heterogeneity for {', '.join(id_choice)} at {t_choice}")
     hmap = sns.heatmap(df,
-                      ax=ax,
-                      cmap=HEATMAP_PALETTE,
-                      cbar=True,
-                      center=0,
-                      vmin=-3,
-                      vmax=3,
-                      yticklabels=False,
-                      xticklabels=True)
+                       ax=ax,
+                       cmap=cmap,
+                       cbar=True,
+                       center=0,
+                       vmin=-3,
+                       vmax=3,
+                       yticklabels=False,
+                       xticklabels=True)
     return hmap.figure
+
+
+@st.cache_data
+def compile_tsne_plot(cmap: str = 'viridis') -> None:
+    """
+    Makes t-SNE plots for the selected data
+    Returns: None, but stores tsne plots as figures to the cache
+    """
+    # General t-SNE plot for all idents
+    fulladata = deepcopy(st.session_state['full_adata'])
+    ident_tsne = sc.pl.tsne(fulladata, color='Idents', return_fig=True)
+    st.session_state['tsne_plots'] = [ident_tsne]
+
+    for gene in st.session_state['genes']:
+        gene_tsne = sc.pl.tsne(fulladata, color=gene, cmap=cmap, return_fig=True)
+        st.session_state['tsne_plots'].append(gene_tsne)
+
+
+@st.cache_data
+def compile_umap_plot(cmap: str = 'viridis') -> None:
+    """
+    Makes UMAP plots for the selected data
+    Returns: None, but stores umap plots as figures to the cache
+    """
+    # General UMAP plot for all idents
+    fulladata = deepcopy(st.session_state['full_adata'])
+    ident_umap = sc.pl.umap(fulladata, color='Idents', return_fig=True)
+    st.session_state['umap_plots'] = [ident_umap]
+
+    for gene in st.session_state['genes']:
+        gene_umap = sc.pl.umap(fulladata, color=gene, cmap=cmap, return_fig=True)
+        st.session_state['umap_plots'].append(gene_umap)
 
 
 ####################################################################################
@@ -187,6 +267,9 @@ def make_dotplots() -> None:
                                default=st.session_state['genes'],
                                key="vnames_dot")
 
+    # Select colormap
+    cmap = st.selectbox("Select colormap", COLORMAPS, key='cmap_dot')
+
     # Plot!
     swap_axes = st.checkbox('Swap axes', key='swap_dot')
     fig = compile_scplot('dotplot',
@@ -195,7 +278,8 @@ def make_dotplots() -> None:
                          condition_choice=condition_choice,
                          var_names=var_names,
                          extra_str=extra_str,
-                         swap_axes=swap_axes)
+                         swap_axes=swap_axes,
+                         cmap=cmap)
     st.session_state['dotplot'] = fig
 
 
@@ -239,7 +323,7 @@ def make_heterogeneity_heatmap() -> None:
     id_choice = st.multiselect("Choose a cluster",
                                st.session_state['Idents'],
                                default=st.session_state['Idents'][1],
-                               key = "cluster_het")
+                               key="cluster_het")
 
     t_choice = st.selectbox('Pick the time', times, placeholder='ZT or CT...', key='time_het')
 
@@ -248,8 +332,11 @@ def make_heterogeneity_heatmap() -> None:
     df = df.select_dtypes(include=('float', 'int'))
     df = df - df.mean(axis=0)
 
+    # Select colormap
+    cmap = st.selectbox("Select colormap", COLORMAPS, key='cmap_het')
+
     # Plot
-    fig = compile_heterogeneity(df, id_choice, t_choice)
+    fig = compile_heterogeneity(df, id_choice, t_choice, cmap)
     st.session_state['heatmap'] = fig
 
 
@@ -282,8 +369,10 @@ def make_matrixplots() -> None:
                                default=st.session_state['genes'],
                                key="vnames_mat")
 
-
     swap_axes = st.checkbox('Show groups in X axis', key='swap_axes_mat')
+
+    # Select colormap
+    cmap = st.selectbox("Select colormap", COLORMAPS, key='cmap_mat')
 
     # Plot!
     fig = compile_scplot(plot_type='matrixplot',
@@ -292,8 +381,36 @@ def make_matrixplots() -> None:
                          condition_choice=condition_choice,
                          var_names=var_names,
                          extra_str=extra_str,
-                         swap_axes=swap_axes)
+                         swap_axes=swap_axes,
+                         cmap=cmap)
+
     st.session_state['matrixplot'] = fig
+
+
+def make_tsne_plots() -> None:
+    """
+    Makes t-SNE plots for the selected data
+    Returns:
+    """
+    # Select colormap
+    cmap = st.selectbox("Select colormap", COLORMAPS, key='cmap_tsne')
+    compile_tsne_plot(cmap)
+    if st.session_state['tsne_plots'] is not None:
+        for figure in st.session_state['tsne_plots']:
+            st.pyplot(figure)
+
+
+def make_umap_plots() -> None:
+    """
+    Makes UMAP plots for the selected data
+    Returns:
+    """
+    # Select colormap
+    cmap = st.selectbox("Select colormap", COLORMAPS, key='cmap_umap')
+    compile_umap_plot(cmap)
+    if st.session_state['umap_plots'] is not None:
+        for figure in st.session_state['umap_plots']:
+            st.pyplot(figure)
 
 
 ####################################################################################
@@ -301,6 +418,8 @@ def make_matrixplots() -> None:
 ####################################################################################
 
 def main():
+    color_theme_setup()
+
     # Page Title
     st.set_page_config(page_title="CircDrosView", page_icon="bar-chart")
     st.write("""
@@ -319,9 +438,10 @@ def main():
             st.session_state['pointplots'] = []
             st.session_state['heatmap'] = None
             st.session_state['matrixplot'] = None
+            st.session_state['tsne_plots'] = None
+            st.session_state['umap_plots'] = None
         fulladata = get_full_adata()
         all_genes = fulladata.var_names.tolist()
-
 
     # Gene selection
     st.write('## Step 1: select genes to analyze')
@@ -333,14 +453,20 @@ def main():
         fetch_data(choice)
 
     if not st.session_state['dataframe'].empty:
-        st.write("Fetched Data:")
+        # Download button for data
         df = st.session_state['dataframe']
-        st.dataframe(df)
+        st.write("Download your data")
+        st.download_button(label="Download filtered data as CSV",
+                           data=df.to_csv().encode('utf-8'),
+                           file_name='data.csv')
 
-        tab_dot, tab_point, tab_het, tab_mat = st.tabs(['Dot plots',
-                                                        'Point plots',
-                                                        'Heterogeneity heatmap',
-                                                        'Matrix plot'])
+        # Tabs
+        tab_dot, tab_point, tab_het, tab_mat, tab_tsne, tab_umap = st.tabs(['Dot plots',
+                                                                            'Point plots',
+                                                                            'Heterogeneity heatmap',
+                                                                            'Matrix plot',
+                                                                            't-SNE plots',
+                                                                            'UMAP plots'])
         # Dotplots
         with tab_dot:
             plt.close()
@@ -370,6 +496,16 @@ def main():
             make_matrixplots()
             if st.session_state['matrixplot'] is not None:
                 st.pyplot(st.session_state['matrixplot'])
+
+        # t-SNE
+        with tab_tsne:
+            plt.close()
+            make_tsne_plots()
+        # UMAP
+        with tab_umap:
+            plt.close()
+            make_umap_plots()
+
     else:
         st.write("Please select data to fetch.")
 
