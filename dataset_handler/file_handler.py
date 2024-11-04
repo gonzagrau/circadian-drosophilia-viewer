@@ -7,11 +7,13 @@ from typing import List, Tuple
 from scanpy import read_h5ad
 
 
-DD_DATA_URL = r'https://drive.google.com/uc?id=1jewJcYuaPyVE327VI0viPP-9kjtFCx_7'
-LD_DATA_URL = r' https://drive.google.com/uc?id=1KF4ce-rdJ7-PPumVlka2bFwoxV0Db1av'
+URL_TEMPLATE = r'https://drive.google.com/uc?id={}'
+DD_DATA_URL = URL_TEMPLATE.format('1jewJcYuaPyVE327VI0viPP-9kjtFCx_7')
+LD_DATA_URL = URL_TEMPLATE.format('1KF4ce-rdJ7-PPumVlka2bFwoxV0Db1av')
+FILTERED_DATA_URL = URL_TEMPLATE.format('1usNrGyEIm7tJABhfMraZ62o1tcFLm5pl')
 
 
-def load_h5ad_files(datadir: str = 'dataset',
+def load_h5ad_files(datadir: str = '../dataset',
                     DD_url: str = DD_DATA_URL,
                     LD_url: str = LD_DATA_URL) -> Tuple[AnnData, AnnData]:
     """
@@ -36,6 +38,29 @@ def load_h5ad_files(datadir: str = 'dataset',
     ad_DD = read_h5ad(os.path.join(datadir, 'dataset_DD.h5ad'))
 
     return ad_LD, ad_DD
+
+
+def load_filtered_adata(datadir: str = '../dataset',
+                          url: str = FILTERED_DATA_URL) -> AnnData:
+     """
+     Fetches data from h5ad files. If they do not exist, they are downloaded.
+     Args:
+          datadir: where to find the h5ad files, if they exist
+          url: url to download the data from
+
+     Returns:
+          an anndata object containing the filtered data
+     """
+     if not os.path.exists(datadir):
+          os.makedirs(datadir)
+
+     datapath = os.path.join(datadir, 'filtered_adata.h5ad')
+     if not os.path.exists(datapath):
+          gdown.download(url, datapath, quiet=False)
+
+     ad = read_h5ad(datapath)
+     return ad
+
 
 def read_genexp_files(genes: List[str] | None = None,
                       data_path: str = r'dataset/') -> pd.DataFrame:
