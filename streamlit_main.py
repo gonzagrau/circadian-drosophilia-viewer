@@ -390,7 +390,6 @@ def make_matrixplots() -> None:
 def make_tsne_plots() -> None:
     """
     Makes t-SNE plots for the selected data
-    Returns:
     """
     # Select colormap
     cmap = st.selectbox("Select colormap", COLORMAPS, key='cmap_tsne')
@@ -403,7 +402,6 @@ def make_tsne_plots() -> None:
 def make_umap_plots() -> None:
     """
     Makes UMAP plots for the selected data
-    Returns:
     """
     # Select colormap
     cmap = st.selectbox("Select colormap", COLORMAPS, key='cmap_umap')
@@ -411,6 +409,25 @@ def make_umap_plots() -> None:
     if st.session_state['umap_plots'] is not None:
         for figure in st.session_state['umap_plots']:
             st.pyplot(figure)
+
+
+def make_second_order_tsne() -> None:
+    """
+    Makes t-SNE plots for cells within a selected cluster (Idents)
+    """
+    # Select colormap
+    st.write('## Second order t-SNE')
+    st.write('The following plot applies clustering within a selected pre-computed cluster, using.')
+    # Slider for leiden resolution
+    resolution = st.slider("Leiden resolution", min_value=0.01, max_value=1.0, value=0.1, step=0.1, key='res_tsne_2')
+    ident = st.selectbox("Select cluster", st.session_state['Idents'], key='cluster_tsne_2')
+    adata = deepcopy(st.session_state['full_adata'])
+    filtered_adata = adata[adata.obs['Idents'] == ident].copy()
+
+    # Generate louvain clusters on the filtered adata and plot the t-SNE plot
+    sc.tl.leiden(filtered_adata, resolution=resolution)
+    fig = sc.pl.tsne(filtered_adata, color='leiden', return_fig=True)
+    st.pyplot(fig)
 
 
 ####################################################################################
@@ -461,12 +478,15 @@ def main():
                            file_name='data.csv')
 
         # Tabs
-        tab_dot, tab_point, tab_het, tab_mat, tab_tsne, tab_umap = st.tabs(['Dot plots',
-                                                                            'Point plots',
-                                                                            'Heterogeneity heatmap',
-                                                                            'Matrix plot',
-                                                                            't-SNE plots',
-                                                                            'UMAP plots'])
+        tab_dot, tab_point, tab_het, tab_mat, tab_tsne, tab_umap, tab_tsne2 = st.tabs([
+            'Dot plots',
+            'Point plots',
+            'Heterogeneity heatmap',
+            'Matrix plot',
+            't-SNE plots',
+            'UMAP plots',
+            'Second order t-SNE'])
+
         # Dotplots
         with tab_dot:
             plt.close()
@@ -505,6 +525,11 @@ def main():
         with tab_umap:
             plt.close()
             make_umap_plots()
+
+        # Second order t-SNE
+        with tab_tsne2:
+            plt.close()
+            make_second_order_tsne()
 
     else:
         st.write("Please select data to fetch.")
